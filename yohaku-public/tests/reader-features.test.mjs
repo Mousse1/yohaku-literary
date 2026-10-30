@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+const read = file => fs.readFileSync(new URL(file, import.meta.url), 'utf8')
+const main = read('../src/main.jsx')
+const parallel = read('../src/ParallelReader.jsx')
+const shared = read('../src/DescendantBodies.jsx')
+assert.ok(main.includes('<DescendantBodies rootWorkId={work.id}'), 'standalone reading should show descendants')
+assert.ok(main.includes('className="work-title-link" onClick={onRead}'), 'title should be clickable')
+assert.ok(main.includes("const parallelWork = (work,kind='body')"), 'parallel button should default to body')
+assert.ok(parallel.includes("{key:nextId.current++,workId:available[0].id,kind:'body'}"))
+assert.ok(!parallel.includes("kind:old.length===1?'notes':'body'"))
+assert.ok(parallel.includes('<DescendantBodies rootWorkId={work.id}'))
+assert.ok(!parallel.includes('下位作品の本文'), 'section heading removed')
+assert.ok(!shared.includes('下位作品の本文'), 'section heading removed from shared component')
+assert.ok(shared.includes(".in('status', ['published','open'])"), 'descendant bodies only query publicly visible items')
+console.log('通常読書・階層読書・02本文デフォルト: OK')
