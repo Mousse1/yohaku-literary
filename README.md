@@ -1,1 +1,0 @@
-# yohaku-literary
