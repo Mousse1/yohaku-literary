@@ -15,7 +15,7 @@ create table if not exists public.works (
   author_id uuid not null references auth.users(id) on delete cascade,
   pen_name text not null check (char_length(btrim(pen_name)) between 1 and 80),
   title text not null check (char_length(btrim(title)) between 1 and 180),
-  genre text not null check (genre in ('純文学','実験文学','哲学小説','詩・散文','その他')),
+  genre text not null check (genre in ('純文学','実験文学','哲学小説','詩・散文','文芸評論','映画','ノベルゲーム','科学','その他')),
   theme text not null default '' check (char_length(theme) <= 200),
   summary text not null check (char_length(btrim(summary)) between 10 and 1000),
   body text not null check (char_length(btrim(body)) between 10 and 200000),
