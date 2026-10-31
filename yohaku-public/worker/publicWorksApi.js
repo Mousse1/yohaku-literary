@@ -58,26 +58,24 @@ async function anonymousSelect(env, table, params) {
   if (/^eyJ[A-Za-z0-9_-]+\./.test(config.key)) headers.authorization = `Bearer ${config.key}`
   const response = await fetch(url,{method:'GET',headers,redirect:'error',signal:AbortSignal.timeout(8000)})
   
+
 if (!response.ok) {
-  let detail = null;
+  let errorCode = null;
 
   try {
-    detail = await response.clone().json();
+    const detail = await response.clone().json();
+    errorCode = detail?.code ?? detail?.error_code ?? null;
   } catch {}
 
   console.error("[Supabase REST]", {
     table,
     status: response.status,
-    errorCode: detail?.code ?? null
+    code: errorCode
   });
 
   throw new Error("public_database_unavailable");
 }
 
-  const data = await response.json()
-  if (!Array.isArray(data)) throw new Error('invalid_database_response')
-  return data
-}
 
 function publicItem(row, origin) {
   // PostgRESTへ送るselectは公開項目に限定。ユーザーIDや審査情報は含めない。
