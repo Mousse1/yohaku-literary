@@ -70,14 +70,18 @@ async function anonymousSelect(env, table, params) {
   if (/^eyJ[A-Za-z0-9_-]+\./.test(config.key)) {
     headers.authorization = `Bearer ${config.key}`;
   }
-
+  
+  
   const response = await fetch(url, {
-    method: 'GET',
-    headers,
-    redirect: 'error',
-    signal: AbortSignal.timeout(8000)
-  });
+  method: 'GET',
+  headers,
+  redirect: 'manual',
+  signal: AbortSignal.timeout(8000)
+});
 
+
+  
+  
   if (!response.ok) {
     let errorCode = null;
 
