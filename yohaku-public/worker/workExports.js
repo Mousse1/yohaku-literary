@@ -80,35 +80,102 @@ export async function loadExportDocument(env, id) {
 
 const noStore={'cache-control':'no-store','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"}
 const plainError=(message,status,method)=>new Response(method==='HEAD'?null:message,{status,headers:{...noStore,'content-type':'text/plain; charset=utf-8'}})
-export async function serveWorkExport(request,env){
-  const url=new URL(request.url)
-  const match=/^\/export\/works\/([0-9a-f-]{36})(?:\.(txt|md)|\/(print))\/?$/i.exec(url.pathname)
-  if(!match || !isUuid(match[1]))return null
-  if(!['GET','HEAD'].includes(request.method))return plainError('この操作には対応していません。',405,request.method)
-  if(!runtimeConfig(env))return plainError('ファイルの生成に必要な接続設定がありません。',503,request.method)
-  try {
-    const doc=await loadExportDocument(env,match[1])
-    if(!doc)return plainError('この作品は公開されていないか、存在しません。',404,request.method)
-    if(doc.error)return plainError(doc.error==='too_many_works'?'収録作品が多いため、下位作品ごとに出力してください。':'本文の合計が大きいため、下位作品ごとに出力してください。',413,request.method)
-    const origin=url.origin
-    const printable=Boolean(match[3]);const markdown=match[2]==='md'
-    const body=printable?renderExportHtml(doc,origin):renderExportText(doc,origin,markdown)
-    const type=printable?'text/html':markdown?'text/markdown':'text/plain'
-    const fileType=markdown?'md':'txt'
-    const filename=encodeURIComponent(String(doc.root.title||'作品').replace(/[\\/\x00-\x1f\x7f]/g,'_').slice(0,90)||'作品')
-    return new Response(request.method==='HEAD'?null:body,{headers:{...noStore,'content-type':`${type}; charset=utf-8`,...(!printable?{'content-disposition':`attachment; filename="yohaku.${fileType}"; filename*=UTF-8''${filename}.${fileType}`}:{})}})
-  
-} catch (error) {
-  console.error(
-    "[File export]",
-    error instanceof Error
-      ? `${error.name}: ${error.message}`
-      : "unknown"
-  );
 
-  return plainError(
-    'ファイルを生成できませんでした。時間をおいて再度お試しください。',
-    503,
-    request.method
-  );
+export async function serveWorkExport(request, env) {
+  const url = new URL(request.url);
+
+  const match =
+    /^\/export\/works\/([0-9a-f-]{36})(?:\.(txt|md)|\/(print))\/?$/i.exec(
+      url.pathname
+    );
+
+  if (!match || !isUuid(match[1])) return null;
+
+  if (!["GET", "HEAD"].includes(request.method)) {
+    return plainError(
+      "この操作には対応していません。",
+      405,
+      request.method
+    );
+  }
+
+  if (!runtimeConfig(env)) {
+    return plainError(
+      "ファイルの生成に必要な接続設定がありません。",
+      503,
+      request.method
+    );
+  }
+
+  try {
+    const doc = await loadExportDocument(env, match[1]);
+
+    if (!doc) {
+      return plainError(
+        "この作品は公開されていないか、存在しません。",
+        404,
+        request.method
+      );
+    }
+
+    if (doc.error) {
+      return plainError(
+        doc.error === "too_many_works"
+          ? "収録作品が多いため、下位作品ごとに出力してください。"
+          : "本文の合計が大きいため、下位作品ごとに出力してください。",
+        413,
+        request.method
+      );
+    }
+
+    const origin = url.origin;
+    const printable = Boolean(match[3]);
+    const markdown = match[2] === "md";
+
+    const body = printable
+      ? renderExportHtml(doc, origin)
+      : renderExportText(doc, origin, markdown);
+
+    const type = printable
+      ? "text/html"
+      : markdown
+        ? "text/markdown"
+        : "text/plain";
+
+    const fileType = markdown ? "md" : "txt";
+
+    const filename = encodeURIComponent(
+      String(doc.root.title || "作品")
+        .replace(/[\\/\x00-\x1f\x7f]/g, "_")
+        .slice(0, 90) || "作品"
+    );
+
+    return new Response(
+      request.method === "HEAD" ? null : body,
+      {
+        headers: {
+          ...noStore,
+          "content-type": `${type}; charset=utf-8`,
+          ...(!printable
+            ? {
+                "content-disposition":
+                  `attachment; filename="yohaku.${fileType}"; filename*=UTF-8''${filename}.${fileType}`
+              }
+            : {})
+        }
+      }
+    );
+
+  } catch (error) {
+    console.error("[File export]", {
+      name: error instanceof Error ? error.name : "unknown",
+      message: error instanceof Error ? error.message : "unknown"
+    });
+
+    return plainError(
+      "ファイルを生成できませんでした。時間をおいて再度お試しください。",
+      503,
+      request.method
+    );
+  }
 }
