@@ -1,0 +1,30 @@
+{
+  "name": "yohaku-literature",
+  "version": "1.1.29",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test:public": "node --test tests/public-json-api-v7_4.test.mjs tests/anonymous-content-api-v7_5_1.test.mjs"
+  },
+  "dependencies": {
+    "@marsidev/react-turnstile": "^1.6.3",
+    "@supabase/supabase-js": "^2.57.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "lucide-react": "^0.468.0",
+    "react-markdown": "^10.1.0",
+    "remark-math": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-breaks": "^4.0.0",
+    "rehype-katex": "^7.0.1",
+    "katex": "^0.16.25"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "vite": "^6.3.5",
+    "wrangler": "^4.154.0"
+  }
+}
