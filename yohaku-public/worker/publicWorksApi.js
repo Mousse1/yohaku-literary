@@ -67,14 +67,37 @@ if (!response.ok) {
     errorCode = detail?.code ?? detail?.error_code ?? null;
   } catch {}
 
-  console.error("[Supabase REST]", {
-    table,
-    status: response.status,
-    code: errorCode
-  });
 
-  throw new Error("public_database_unavailable");
+  if (!response.ok) {
+    let errorCode = null;
+
+    try {
+      const detail = await response.clone().json();
+      errorCode = detail?.code ?? detail?.error_code ?? null;
+    } catch {}
+
+    console.error("[Supabase REST]", {
+      table,
+      status: response.status,
+      code: errorCode
+    });
+
+    throw new Error("public_database_unavailable");
+  }
+
+  return await response.json();
 }
+
+function publicItem(row, origin) {
+  // PostgRESTへ送るselectは公開項目に限定。
+  return {
+    ...row,
+    url: canonical(origin, row.id),
+    api_url: endpoint(origin, row.id)
+  };
+}
+
+  
 
 
 function publicItem(row, origin) {
