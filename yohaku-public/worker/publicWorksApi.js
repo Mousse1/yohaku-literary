@@ -113,6 +113,22 @@ const validRow = row =>
 
 
 
+export async function getWork(env,id) {
+  const result = await anonymousSelect(
+    env,
+    'works',
+    {
+      select: FULL_FIELDS,
+      id: `eq.${id}`,
+      status: FILTER,
+      limit: 1
+    }
+  );
+
+  return result.find(validRow) || null;
+}
+
+
 export async function getReferences(env,id) {
   // 参考文献は補足情報。RLSまたはクエリ失敗でも本文は取得できるようにする。
   try {
