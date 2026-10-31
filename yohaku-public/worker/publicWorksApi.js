@@ -73,11 +73,11 @@ async function anonymousSelect(env, table, params) {
   
   
   const response = await fetch(url, {
-  method: 'GET',
-  headers,
-  redirect: 'manual',
-  signal: AbortSignal.timeout(8000)
-});
+    method: 'GET',
+    headers,
+    redirect: 'manual',
+    signal: AbortSignal.timeout(8000)
+  });
 
 
   
