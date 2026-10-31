@@ -97,5 +97,18 @@ export async function serveWorkExport(request,env){
     const fileType=markdown?'md':'txt'
     const filename=encodeURIComponent(String(doc.root.title||'作品').replace(/[\\/\x00-\x1f\x7f]/g,'_').slice(0,90)||'作品')
     return new Response(request.method==='HEAD'?null:body,{headers:{...noStore,'content-type':`${type}; charset=utf-8`,...(!printable?{'content-disposition':`attachment; filename="yohaku.${fileType}"; filename*=UTF-8''${filename}.${fileType}`}:{})}})
-  }catch{return plainError('ファイルを生成できませんでした。時間をおいて再度お試しください。',503,request.method)}
+  
+} catch (error) {
+  console.error(
+    "[File export]",
+    error instanceof Error
+      ? `${error.name}: ${error.message}`
+      : "unknown"
+  );
+
+  return plainError(
+    'ファイルを生成できませんでした。時間をおいて再度お試しください。',
+    503,
+    request.method
+  );
 }
