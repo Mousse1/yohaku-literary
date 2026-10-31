@@ -4,12 +4,6 @@
   "main": "./worker/index.js",
   "keep_vars": true,
   "compatibility_date": "2026-10-29",
-
-  "vars": {
-    "PUBLIC_SUPABASE_URL": "https://YOUR_PROJECT.supabase.co",
-    "PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_YOUR_KEY"
-  },
-
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
