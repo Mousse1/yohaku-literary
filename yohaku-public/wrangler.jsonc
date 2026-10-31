@@ -1,6 +1,13 @@
 {
   "name": "yohaku-literary",
   "main": "./worker/index.js",
+  "keep_vars": true,
+  "compatibility_date": "2026-10-29",
+  "assets": {
+
+{
+  "name": "yohaku-literary",
+  "main": "./worker/index.js",
   "compatibility_date": "2026-10-29",
   "assets": {
     "directory": "./dist",
