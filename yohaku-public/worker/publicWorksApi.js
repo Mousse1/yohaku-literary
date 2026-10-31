@@ -89,12 +89,14 @@ async function anonymousSelect(env, table, params) {
       const detail = await response.clone().json();
       errorCode = detail?.code ?? detail?.error_code ?? null;
     } catch {}
-
+    
     console.error('[Supabase REST]', {
       table,
       status: response.status,
-      code: errorCode
+      code: errorCode,
+      cfErrorType: response.headers.get('cf-error-type')
     });
+
 
     throw new Error('public_database_unavailable');
   }
