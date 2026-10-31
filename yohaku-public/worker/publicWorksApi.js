@@ -48,25 +48,35 @@ export function runtimeConfig(env = {}) {
   } catch { return null }
 }
 
+
 async function anonymousSelect(env, table, params) {
-  const config = runtimeConfig(env)
-  if (!config) throw new Error('missing_runtime_config')
-  const url = new URL(`${config.url}/rest/v1/${table}`)
-  for (const [name,value] of Object.entries(params)) url.searchParams.set(name, String(value))
-  const headers = {apikey:config.key, accept:'application/json'}
-  // 旧 anon JWT は Bearer 認証も使用。新 publishable key は JWT ではない。
-  if (/^eyJ[A-Za-z0-9_-]+\./.test(config.key)) headers.authorization = `Bearer ${config.key}`
-  const response = await fetch(url,{method:'GET',headers,redirect:'error',signal:AbortSignal.timeout(8000)})
-  
+  const config = runtimeConfig(env);
 
-if (!response.ok) {
-  let errorCode = null;
+  if (!config) {
+    throw new Error('missing_runtime_config');
+  }
 
-  try {
-    const detail = await response.clone().json();
-    errorCode = detail?.code ?? detail?.error_code ?? null;
-  } catch {}
+  const url = new URL(`${config.url}/rest/v1/${table}`);
 
+  for (const [name, value] of Object.entries(params)) {
+    url.searchParams.set(name, String(value));
+  }
+
+  const headers = {
+    apikey: config.key,
+    accept: 'application/json'
+  };
+
+  if (/^eyJ[A-Za-z0-9_-]+\./.test(config.key)) {
+    headers.authorization = `Bearer ${config.key}`;
+  }
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers,
+    redirect: 'error',
+    signal: AbortSignal.timeout(8000)
+  });
 
   if (!response.ok) {
     let errorCode = null;
@@ -76,20 +86,19 @@ if (!response.ok) {
       errorCode = detail?.code ?? detail?.error_code ?? null;
     } catch {}
 
-    console.error("[Supabase REST]", {
+    console.error('[Supabase REST]', {
       table,
       status: response.status,
       code: errorCode
     });
 
-    throw new Error("public_database_unavailable");
+    throw new Error('public_database_unavailable');
   }
 
   return await response.json();
 }
 
 function publicItem(row, origin) {
-  // PostgRESTへ送るselectは公開項目に限定。
   return {
     ...row,
     url: canonical(origin, row.id),
@@ -97,18 +106,13 @@ function publicItem(row, origin) {
   };
 }
 
-  
+const validRow = row =>
+  row &&
+  isUuid(row.id) &&
+  PUBLIC_STATUSES.has(row.status);
 
 
-function publicItem(row, origin) {
-  // PostgRESTへ送るselectは公開項目に限定。ユーザーIDや審査情報は含めない。
-  return {...row, url:canonical(origin,row.id), api_url:endpoint(origin,row.id)}
-}
-const validRow = row => row && isUuid(row.id) && PUBLIC_STATUSES.has(row.status)
-export async function getWork(env,id) {
-  const result = await anonymousSelect(env,'works',{select:FULL_FIELDS,id:`eq.${id}`,status:FILTER,limit:1})
-  return result.find(validRow) || null
-}
+
 export async function getReferences(env,id) {
   // 参考文献は補足情報。RLSまたはクエリ失敗でも本文は取得できるようにする。
   try {
