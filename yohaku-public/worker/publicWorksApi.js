@@ -348,3 +348,100 @@ export async function servePublicWorksApi(request, env) {
     request.method
   );
 }
+
+
+}
+
+// 公開作品初期HTML専用。
+// 匿名公開本文だけを取得する。
+export async function getVisibleBodies(env, nodes) {
+  if (!nodes.length) return [];
+
+  const rows = await anonymousSelect(env, 'works', {
+    select: 'id,body,status',
+    id: `in.(${nodes.map(n => n.id).join(',')})`,
+    status: FILTER,
+    limit: nodes.length
+  });
+
+  const byId = new Map(
+    rows.filter(validRow).map(row => [
+      row.id,
+      String(row.body || '')
+    ])
+  );
+
+  return nodes
+    .filter(n => byId.has(n.id))
+    .map(n => ({
+      ...n,
+      body: byId.get(n.id)
+    }));
+}
+
+// ファイル出力用。
+// 公開されている作品の詳細データを取得する。
+export async function getVisibleDetails(env, nodes) {
+  if (!nodes.length) return [];
+
+  const rows = await anonymousSelect(env, 'works', {
+    select: FULL_FIELDS,
+    id: `in.(${nodes.map(n => n.id).join(',')})`,
+    status: FILTER,
+    limit: nodes.length
+  });
+
+  const byId = new Map(
+    rows.filter(validRow).map(row => [row.id, row])
+  );
+
+  return nodes
+    .filter(n => byId.has(n.id))
+    .map(n => ({
+      ...byId.get(n.id),
+      depth: n.depth,
+      path: n.path
+    }));
+}
+
+// ファイル出力用の参考文献索引。
+export async function getReferenceIndex(env, ids) {
+  const output = new Map();
+
+  for (let i = 0; i < ids.length; i += 20) {
+    const batch = ids.slice(i, i + 20);
+
+    try {
+      const rows = await anonymousSelect(
+        env,
+        'work_references',
+        {
+          select: 'work_id,title,relation,url',
+          work_id: `in.(${batch.join(',')})`,
+          order: 'created_at.asc',
+          limit: 1000
+        }
+      );
+
+      for (const row of rows) {
+        if (!batch.includes(row.work_id)) continue;
+
+        const existing = output.get(row.work_id) || [];
+
+        if (existing.length >= 20) continue;
+
+        existing.push({
+          title: String(row.title || ''),
+          relation: String(row.relation || ''),
+          url: safeReferenceUrl(row.url)
+        });
+
+        output.set(row.work_id, existing);
+      }
+    } catch {
+      // 参考文献を取得できなくても本文は出力する。
+    }
+  }
+
+  return output;
+}
