@@ -335,11 +335,21 @@ export async function servePublicWorksApi(request, env) {
       else result=await getDescendantPage(env,url,id,root)
     } else result=await detailWork(env,url,id)
     return jsonResponse(result.data||{error:result.error},result.status,request.method)
-  } catch {
-    // 接続情報、内部SQL、認証エラー詳細は外部に開示しない。
-    return jsonResponse({error:'temporarily_unavailable'},503,request.method)
-  }
+  
+} catch (error) {
+  console.error("[Public API]", {
+    name: error instanceof Error ? error.name : "unknown",
+    message: error instanceof Error ? error.message : "unknown"
+  });
+
+  return jsonResponse(
+    { error: "temporarily_unavailable" },
+    503,
+    request.method
+  );
 }
+
+  
 
 // 公開作品初期HTML専用: 順序を維持して匿名公開本文だけを取得。
 export async function getVisibleBodies(env,nodes) {
