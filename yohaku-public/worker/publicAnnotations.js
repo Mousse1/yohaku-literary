@@ -1,0 +1,29 @@
+import {noteLinks,noteLinkSegments} from '../src/noteLinks.js'
+import {decodeGenres} from '../src/classifications.js'
+import {annotationSegments} from '../src/annotationMarkers.js'
+import {unpackReference} from '../src/referenceAnnotations.js'
+
+export function publicReference(row) {
+  const ref=unpackReference(row)
+  let url=null
+  try {const parsed=new URL(ref.url);if(parsed.protocol==='https:')url=parsed.href}catch{}
+  return {title:ref.title,relation:String(ref.relation||''),url,annotation_number:ref.annotationNumber||row.annotation_number||null}
+}
+export function annotationLinks(work,references=[]) {
+  const numbers=[...new Set(noteLinkSegments(work.body).flatMap(p=>p.type==='text'?annotationSegments(p.value):[]).filter(p=>p.type==='marker').map(p=>p.number))]
+  return numbers.map(number=>({number,scope_work_id:work.id,footnote_id:`work-${work.id}-note-${number}`,
+    references:references.filter(r=>r.annotation_number===number),
+    resolved:references.some(r=>r.annotation_number===number)}))
+}
+export function recordJson(record,origin) {
+  const work=record.work
+  return {...work,genres:decodeGenres(work.genre),url:`${origin}/works/${work.id}`,markdown_url:`${origin}/works/${work.id}.md`,
+    note_links:noteLinks(work.body).map(({label,workId,anchor})=>({label,target_work_id:workId,target_anchor:anchor,url:`${origin}/works/${workId}${anchor?'#'+anchor:''}`})),body_format:'markdown',path:record.path,depth:record.depth||work.depth||0,
+    references:record.references,annotations:annotationLinks(work,record.references),notes:record.notes||[]}
+}
+// Convert editorial markers only. Ordinary Markdown, code and LaTeX stay intact.
+export function markdownBody(work,origin='') {
+  return noteLinkSegments(work.body).map(part=>part.type==='link'
+    ? '['+part.link.label.replace(/[\\\[\]]/g,ch=>'\\'+ch)+']('+origin+part.link.url+')'
+    : annotationSegments(part.value).map(p=>p.type==='marker'?`[^work-${work.id}-note-${p.number}]`:p.value).join('')).join('')
+}

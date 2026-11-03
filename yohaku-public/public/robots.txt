@@ -1,0 +1,11 @@
+# Public reading URLs are available to search and user-requested AI fetchers.
+# Applies to ChatGPT-User, OAI-SearchBot, Claude-User, Claude-SearchBot,
+# Googlebot and other compliant agents. Authorization is enforced by the server.
+User-agent: *
+Allow: /
+Disallow: /api/
+Allow: /api/public/works
+Disallow: /admin
+Disallow: /mine
+Disallow: /submit
+Disallow: /revise
