@@ -79,7 +79,7 @@ export default function MyWorkLibrary({
             : <span className="owner-toggle-spacer" aria-hidden="true"/>}
           {isGroup ? <FolderTree size={18} className="owner-work-type-icon" aria-hidden="true"/> : <FileText size={17} className="owner-work-type-icon" aria-hidden="true"/>}
           <button className="owner-work-title" onClick={() => onRead(w)} title={node.path}>{w.title?.trim()||'無題の下書き'}</button>
-          <span className={'status'+(w.status==='published'?' published':'')}>{statusText[w.status] || w.status}</span>
+          <span className={'status'+(w.status==='published'?' published':'')}>{w.status==='open'&&w.review_state?`自由公開（${w.review_state==='pending'?'審査中':'差し戻し'}）`:statusText[w.status] || w.status}</span>
           {isGroup&&<span className="owner-mini-tag">グループ</span>}
           {hasChildren&&<span className="owner-child-count">下位 {node.descendantCount} 件</span>}
           {!node.depth&&<span className="owner-mini-tag">最上位</span>}
@@ -106,7 +106,8 @@ export default function MyWorkLibrary({
           {publicStatus(w.status)&&<a className="text-action" href={`${window.location.origin}/works/${encodeURIComponent(w.id)}`}><LinkIcon size={13}/> 公開URL</a>}{publicStatus(w.status)&&<WorkExportLinks workId={w.id} compact/>}
           {['draft','pending','rejected','open'].includes(w.status)&&<>
             <button className="text-action" onClick={()=>onEdit(w)}>編集</button>
-            {w.status==='open'&&hasReviewBody(w)&&<button className="text-action" disabled={busy} onClick={()=>onEdit(w,true)}>審査して公開</button>}
+            {['pending','rejected'].includes(w.status)&&<button className="text-action" disabled={busy} onClick={()=>onEdit({...w,freePublication:true})}>自由公開する</button>}
+            {w.status==='open'&&w.review_state!=='pending'&&hasReviewBody(w)&&<button className="text-action" disabled={busy} onClick={()=>onEdit(w,true)}>{w.review_state==='rejected'?'再審査を申請':'審査して公開'}</button>}
             <button className="text-action dangerous" disabled={busy} onClick={()=>onDelete(w)}>削除</button>
           </>}
           {w.status==='published'&&<>
