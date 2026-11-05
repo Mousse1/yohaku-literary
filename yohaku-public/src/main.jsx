@@ -1,3 +1,4 @@
+import {hasReviewBody} from './reviewEligibility.js'
 import ReadingNavigation from './ReadingNavigation'
 import NoteLinkEditor from './NoteLinkEditor'
 import {dailyLimitText} from './dailyLimits.js'
@@ -178,7 +179,7 @@ function App(){
   const loadAdmin = useCallback(async ()=>{
     if(!isMod)return
     const [w,n,c,r,v,q]=await Promise.all([
-      supabase.from('works').select('id,title,pen_name,contributor_credit,section,genre,status,created_at').eq('status','pending').order('created_at',{ascending:false}).limit(100),
+      supabase.from('works').select('id,title,pen_name,contributor_credit,section,genre,status,created_at,body').eq('status','pending').order('created_at',{ascending:false}).limit(100),
       supabase.from('notes').select('id,work_id,pen_name,type,body,status,created_at').eq('status','pending').order('created_at',{ascending:true}).limit(100),
       supabase.from('community_references').select('id,work_id,pen_name,title,explanation,url,status,created_at').eq('status','pending').order('created_at',{ascending:true}).limit(100),
       supabase.from('reports').select('id,work_id,reason,detail,resolved,created_at').eq('resolved',false).order('created_at',{ascending:true}).limit(100),
@@ -186,7 +187,7 @@ function App(){
       supabase.from('publication_requests').select('*,works(title,pen_name)').eq('status','pending').order('created_at',{ascending:true}).limit(100)
     ])
     if(w.error||n.error||c.error||r.error||v.error||q.error){flash('管理データを取得できませんでした。v6.8文献提案用SQLと権限を確認してください。');console.error('管理データ取得エラー',{works:w.error,notes:n.error,communityRefs:c.error,reports:r.error,revisions:v.error,requests:q.error});return}
-    setAdminData({works:w.data||[],notes:n.data||[],communityRefs:c.data||[],reports:r.data||[],revisions:v.data||[],requests:q.data||[]})
+    setAdminData({works:(w.data||[]).filter(hasReviewBody),notes:n.data||[],communityRefs:c.data||[],reports:r.data||[],revisions:v.data||[],requests:q.data||[]})
   },[isMod])
   useEffect(()=>{if(route==='admin')loadAdmin()},[route,loadAdmin])
   const loadWorkExtras = async (workId, valid=()=>true) => {
@@ -455,7 +456,7 @@ function App(){
         if(error)throw error
       }} onSubmit={saveRevision} disabled={loading} onCancel={()=>{setRevisionEditing(null);navigate('mine')}}/>}
     </main>}
-    {route==='mine'&&<main className="container page"><div className="eyebrow">MY LIBRARY</div><h1 className="serif page-title">自分の作品</h1><p className="page-lead">審査済み作品は「改訂版を書く」から新版を提出します。自由公開作品も「審査して公開」から審査を申請できます。審査中・差し戻し後は非公開となり、承認後は同じURLで審査済み公開になります。審査済み作品は承認まで旧版を公開し続け、承認済みの版は履歴に保存されます。公開停止・削除は管理者への申請制です。</p><p className="hint">{dailyLimitText}</p><div className="section-heading"><p>{mine.length} 作品</p><div className="group-actions"><button className="button light" disabled={loading} onClick={()=>beginCreation('collection')}><FolderTree size={16}/> 最上位グループを作成</button><button className="button primary" disabled={loading} onClick={()=>beginCreation('work')}><Plus size={16}/>新しい作品を書く</button></div></div>
+    {route==='mine'&&<main className="container page"><div className="eyebrow">MY LIBRARY</div><h1 className="serif page-title">自分の作品</h1><p className="page-lead">審査済み作品は「改訂版を書く」から新版を提出します。本文のないグループは審査不要で公開できます。本文がある自由公開作品は「審査して公開」から審査を申請できます。審査中・差し戻し後は非公開となり、承認後は同じURLで審査済み公開になります。審査済み作品は承認まで旧版を公開し続け、承認済みの版は履歴に保存されます。公開停止・削除は管理者への申請制です。</p><p className="hint">{dailyLimitText}</p><div className="section-heading"><p>{mine.length} 作品</p><div className="group-actions"><button className="button light" disabled={loading} onClick={()=>beginCreation('collection')}><FolderTree size={16}/> 最上位グループを作成</button><button className="button primary" disabled={loading} onClick={()=>beginCreation('work')}><Plus size={16}/>新しい作品を書く</button></div></div>
       {!mine.length ? <div className="empty">まだ投稿作品がありません。</div> : <MyWorkLibrary
         works={mine} revisions={myRevisions} requests={myRequests} busy={loading} userId={user?.id}
         onRead={openWork} onCreateChild={createChild}
@@ -573,7 +574,9 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
   const [preview,setPreview]=useState(false)
   const wasFree = Boolean(initial?.status==='open'||initial?.freely_published_once)
   const [publicationMode,setPublicationMode]=useState(initial?.requestReview||initial?.status==='pending'||initial?.status==='rejected'?'pending':'open')
-  useEffect(()=>{onPublicationModeChange?.(publicationMode)},[publicationMode,onPublicationModeChange])
+  const reviewEligible=hasReviewBody(fields)
+  const effectivePublicationMode=reviewEligible?publicationMode:'open'
+  useEffect(()=>{onPublicationModeChange?.(effectivePublicationMode)},[effectivePublicationMode,onPublicationModeChange])
   const editorRef=useRef(null)
   const markdownFileRef=useRef(null)
   const markdownRead=useRef(0)
@@ -761,7 +764,7 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
     if(submitting.current)return
     const valid=refs.every(r=>r.title.trim()&&packedTitleLength(r)<=300&&validOptionalReferenceUrl(r.url))&&validateReferenceNumbers(refs)
     if(!valid){alert('参考文献名・URL・注釈番号を確認してください。注釈番号は重複不可、文献名は記号を含めて300文字以内です。');return}
-    if(!revisionMode&&initial?.status==='open'&&status==='pending'&&!confirm('審査へ提出すると、承認までこの作品は非公開になります。グループの場合は下位作品も一般閲覧できなくなります。同じURLと編集内容を保持して提出しますか？'))return
+    if(!revisionMode&&initial?.status==='open'&&status==='pending'&&!confirm('審査へ提出すると、承認までこの作品は非公開になります。下位作品がある場合は、それらも一般閲覧できなくなります。同じURLと編集内容を保持して提出しますか？'))return
     submitting.current=true;clearTimeout(timer.current)
     try {
       await pendingSave.current.catch(()=>{})
@@ -770,7 +773,7 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
       else submitting.current=false
     } catch(err) {submitting.current=false;setSaveState('error');setSaveError(messageFor(err))}
   }
-  return <form id="yohaku-editor-form" className="editor" onKeyDown={editorShortcuts} onSubmit={e=>submit(e,revisionMode?'pending':publicationMode)}>
+  return <form id="yohaku-editor-form" className="editor" onKeyDown={editorShortcuts} onSubmit={e=>submit(e,revisionMode?'pending':effectivePublicationMode)}>
   <div className="editor-recovery-bar" aria-label="編集の取り消しと復元">
     <div className="editor-recovery-buttons">
       <button type="button" className="button light small" disabled={submitting.current||historyCounts.undo===0} onClick={stepBack} title="一つ前の編集に戻す (Ctrl/⌘+Z)"><Undo2 size={15}/> 元に戻す</button>
@@ -810,8 +813,8 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
   <div className="editor-section"><div className="section-small">02 / 思想・技法・知識の位置づけ</div><p className="muted">記載は任意です。確証がない場合は「仮説」として記述してください。</p><Field label="この作品が問うこと"><textarea maxLength={2000} rows={3} value={fields.question} onChange={e=>update('question',e.target.value)}/></Field><Field label="先行作品から継承するもの"><textarea maxLength={2000} rows={3} value={fields.inheritance} onChange={e=>update('inheritance',e.target.value)}/></Field><Field label="新たに試みること"><textarea maxLength={2000} rows={3} value={fields.novelty} onChange={e=>update('novelty',e.target.value)}/></Field></div>
   <div className="editor-section"><div className="section-small">03 / 参考文献・関連作品</div><p className="muted">パンフレット・書籍・配布資料など、URLのない文献も登録できます。URLは任意（空欄可）です。各作品につき20件まで。対応番号を入れると本文の注釈印を押して「並べて読む」で開けます。</p>{refs.map((r,i)=><div className="ref-edit" key={i}><div className="ref-edit-head"><strong>文献 {i+1}{r.annotationNumber?` ／ 注釈 *${r.annotationNumber}`:''}</strong><button className="text-action dangerous" type="button" onClick={()=>setRefs(a=>a.filter((_,j)=>j!==i))}><Trash2 size={13}/> 削除</button></div><div className="two-col"><Field label="書名・資料名・著者など *"><input required maxLength={290} value={r.title} onChange={e=>setRef(i,'title',e.target.value)}/></Field><Field label="関連の理由"><input maxLength={200} value={r.relation} onChange={e=>setRef(i,'relation',e.target.value)}/></Field></div><Field label="対応する注釈番号（任意・例：1）"><input type="number" min="1" max="999999" step="1" value={r.annotationNumber||''} onChange={e=>setRef(i,'annotationNumber',e.target.value)} placeholder="本文の **（1番目）と対応"/></Field><Field label="参考URL（任意・空欄で登録できます）"><input type="url" maxLength={1000} value={r.url} onChange={e=>setRef(i,'url',e.target.value)}/></Field></div>)}<button type="button" disabled={refs.length>=20} className="button light small" onClick={()=>setRefs(x=>[...x,{title:'',relation:'',url:''}])}><Plus size={15}/>文献を追加</button></div>
   {revisionMode&&<div className="editor-section"><div className="section-small">04 / 改訂の説明</div><Field label="今回変更した内容（任意）"><textarea rows={3} maxLength={1000} value={changeNote} onChange={e=>setChangeNote(e.target.value)}/></Field><p className="hint">承認後、この説明は改訂履歴に掲載されます。公開中の旧版は審査完了まで変更されません。</p></div>}
-  {!revisionMode&&<div className="editor-section publish-choice"><div className="section-small">04 / 公開方法</div><div className="publish-choice-options"><label className={publicationMode==='open'?'publish-option active':'publish-option'}><input type="radio" name="publication-mode" checked={publicationMode==='open'} onChange={()=>setPublicationMode('open')}/><span><strong>自由公開（審査なし）</strong><small>新規性・厳密さの説明なしで、すぐ公開。未審査と明示し、作者が直接編集できます。</small></span></label><label className={publicationMode==='pending'?'publish-option active':'publish-option'}><input type="radio" name="publication-mode" checked={publicationMode==='pending'} onChange={()=>setPublicationMode('pending')}/><span><strong>審査付き公開</strong><small>管理者の確認後に公開。改訂時も再審査を行います。</small></span></label></div>{wasFree&&<p className="hint">自由公開した作品も、同じ作品・URLのまま「審査付き公開」へ提出できます。審査中と差し戻し後は非公開になり、承認後に再公開されます。グループを提出すると、下位作品も承認まで一般閲覧できなくなります。本文・参考文献と、この画面の編集内容を保存して提出します。</p>}</div>}
-  <div className="editor-actions"><p className="hint">{!revisionMode&&<>{dailyLimitText}<br/></>}{revisionMode?'改訂案は承認まで非公開です。差し戻された場合は再編集できます。':'自由公開は運営による事前審査・品質保証ではありません。著作権・個人情報・利用規約を守ってください。'}</p><div><button className="button light" type="button" onClick={leaveEditor}>執筆を終える</button><span className={'auto-save-status '+saveState} role="status" aria-live="polite">{saveState==='saved'?'クラウドに自動保存済み':saveState==='saving'?'クラウドへ保存中…':saveState==='error'?'自動保存に失敗しました':saveState==='local'?'この端末に一時保存中（公開は未反映）':'入力内容を一時保存中…'}{saveError&&<span className="auto-save-error">{saveError}</span>}</span><button className="button primary" disabled={disabled} type="submit"><PenLine size={15}/>{disabled?'保存中…':revisionMode||publicationMode==='pending'?'審査へ提出':'審査なしで公開'}</button></div></div></form>
+  {!revisionMode&&<div className="editor-section publish-choice"><div className="section-small">04 / 公開方法</div><div className="publish-choice-options"><label className={effectivePublicationMode==='open'?'publish-option active':'publish-option'}><input type="radio" name="publication-mode" checked={effectivePublicationMode==='open'} onChange={()=>setPublicationMode('open')}/><span><strong>自由公開（審査なし）</strong><small>新規性・厳密さの説明なしで、すぐ公開。未審査と明示し、作者が直接編集できます。</small></span></label><label className={effectivePublicationMode==='pending'?'publish-option active':'publish-option'}><input type="radio" name="publication-mode" disabled={!reviewEligible} checked={effectivePublicationMode==='pending'} onChange={()=>setPublicationMode('pending')}/><span><strong>審査付き公開</strong><small>管理者の確認後に公開。改訂時も再審査を行います。</small></span></label></div>{!reviewEligible&&<p className="hint">本文のないグループは審査不要です。「審査なしで公開」を選ぶとすぐに公開できます。本文がある作品だけ審査を申請できます。</p>}{wasFree&&reviewEligible&&<p className="hint">自由公開した作品も、同じ作品・URLのまま「審査付き公開」へ提出できます。審査中と差し戻し後は非公開になり、承認後に再公開されます。本文を持つ親作品を提出すると、下位作品も承認まで一般閲覧できなくなります。本文・参考文献と、この画面の編集内容を保存して提出します。</p>}</div>}
+  <div className="editor-actions"><p className="hint">{!revisionMode&&<>{dailyLimitText}<br/></>}{revisionMode?'改訂案は承認まで非公開です。差し戻された場合は再編集できます。':'自由公開は運営による事前審査・品質保証ではありません。著作権・個人情報・利用規約を守ってください。'}</p><div><button className="button light" type="button" onClick={leaveEditor}>執筆を終える</button><span className={'auto-save-status '+saveState} role="status" aria-live="polite">{saveState==='saved'?'クラウドに自動保存済み':saveState==='saving'?'クラウドへ保存中…':saveState==='error'?'自動保存に失敗しました':saveState==='local'?'この端末に一時保存中（公開は未反映）':'入力内容を一時保存中…'}{saveError&&<span className="auto-save-error">{saveError}</span>}</span><button className="button primary" disabled={disabled} type="submit"><PenLine size={15}/>{disabled?'保存中…':revisionMode||effectivePublicationMode==='pending'?'審査へ提出':'審査なしで公開'}</button></div></div></form>
 }
 function Field({label,children}){return <label className="field"><span>{label}</span>{children}</label>}
 
