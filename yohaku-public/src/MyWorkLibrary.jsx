@@ -105,6 +105,7 @@ export default function MyWorkLibrary({
           {publicStatus(w.status)&&<a className="text-action" href={`${window.location.origin}/works/${encodeURIComponent(w.id)}`}><LinkIcon size={13}/> 公開URL</a>}{publicStatus(w.status)&&<WorkExportLinks workId={w.id} compact/>}
           {['draft','pending','rejected','open'].includes(w.status)&&<>
             <button className="text-action" onClick={()=>onEdit(w)}>編集</button>
+            {w.status==='open'&&<button className="text-action" disabled={busy} onClick={()=>onEdit(w,true)}>審査して公開</button>}
             <button className="text-action dangerous" disabled={busy} onClick={()=>onDelete(w)}>削除</button>
           </>}
           {w.status==='published'&&<>
