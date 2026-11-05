@@ -575,6 +575,8 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
   const [publicationMode,setPublicationMode]=useState(initial?.status==='pending'||initial?.status==='rejected'?'pending':'open')
   useEffect(()=>{onPublicationModeChange?.(publicationMode)},[publicationMode,onPublicationModeChange])
   const editorRef=useRef(null)
+  const markdownFileRef=useRef(null)
+  const markdownRead=useRef(0)
   useEffect(()=>{try{localStorage.setItem('yohaku_editor_size',String(editorSize))}catch{}},[editorSize])
   const insertMarkup=(before,after='',placeholder='文章')=>{
     const field=editorRef.current
@@ -591,6 +593,36 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
     requestAnimationFrame(()=>{field?.focus();field?.setSelectionRange(position+2,position+2)})
   }
   const update=(key,value)=>setFields(o=>({...o,[key]:value}))
+  async function insertMarkdownFile(event) {
+    const file=event.target.files?.[0]
+    event.target.value=''
+    const editor=editorRef.current
+    if(!file || !editor) return
+    const request=++markdownRead.current
+    if(!/\.md$/i.test(file.name)){alert('拡張子が .md のファイルを選んでください。');return}
+    if(file.size>editor.maxLength*4+3){alert('本文の文字数上限を超えるファイルです。');return}
+    const original=editor.value
+    const start=editor.selectionStart
+    const end=editor.selectionEnd
+    const current=()=>request===markdownRead.current && editorRef.current===editor
+    try {
+      const bytes=await file.arrayBuffer()
+      if(!current()) return
+      const content=new TextDecoder('utf-8',{fatal:true}).decode(bytes).replace(/\r\n?/g,'\n')
+      if(!content){alert('ファイルが空です。');return}
+      if(editor.value!==original){alert('読み込み中に本文が変更されました。挿入位置を選んで再度お試しください。');return}
+      const next=original.slice(0,start)+content+original.slice(end)
+      if(next.length>editor.maxLength){alert('挿入後の本文が20万文字を超えます。');return}
+      update('body',next)
+      requestAnimationFrame(()=>{
+        if(!current() || editor.value!==next) return
+        editor.focus()
+        editor.setSelectionRange(start+content.length,start+content.length)
+      })
+    } catch {
+      if(current()) alert('ファイルを読み込めませんでした。UTF-8形式の .md ファイルを選んでください。')
+    }
+  }
   const setRef=(index,key,value)=>setRefs(old=>old.map((ref,i)=>i===index?{...ref,[key]:value}:ref))
   const payloadFor=status=>toWorkPayload(fields,refs,{id:initial?.id||null,status,revisionMode,changeNote})
   // Preserve the previous substantial text before an accidental mass deletion,
@@ -750,6 +782,8 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
   <Field label="同じ階層内の並び順"><input type="number" min="0" max="9999" value={fields.order_index??0} onChange={e=>update('order_index',e.target.value)} /></Field>
   <Field label="主題"><input maxLength={200} value={fields.theme} onChange={e=>update('theme',e.target.value)}/></Field></div><Field label={fields.node_kind==='collection'?'グループの説明（任意）':'作品紹介（任意）'}><textarea maxLength={1000} rows={3} value={fields.summary} onChange={e=>update('summary',e.target.value)}/></Field>{fields.node_kind==='work'&&<><div className="writing-toolbar" aria-label="執筆ツール">
     <strong>書式・数式</strong>
+    <input hidden type="file" accept=".md" ref={markdownFileRef} onChange={insertMarkdownFile}/>
+    <button type="button" className="button light small" onClick={()=>markdownFileRef.current?.click()}>.mdファイルを挿入</button>
     <button type="button" className="button light small" onClick={()=>insertMarkup('## ','','小見出し')}>見出し</button>
     <button type="button" className="button light small" onClick={insertAnnotationPlaceholder}>注釈番号 **</button>
     <button type="button" className="button light small" onClick={()=>insertMarkup('**','**','強調')}>太字</button>
