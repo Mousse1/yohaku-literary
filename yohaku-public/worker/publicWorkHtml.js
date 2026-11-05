@@ -55,7 +55,7 @@ export function renderPublicWorkHtml(template, work, references, tree, embedded,
   const status=publicationText(work)
   const author=work.pen_name?`<p>作者：${escapeHtml(work.pen_name)}${work.contributor_credit?' ／ 入力・構成：'+escapeHtml(work.contributor_credit):''}</p>`:''
   const content=`<main class="initial-public-work" style="max-width:850px;margin:2rem auto;padding:1rem;font-family:serif;line-height:1.45;overflow-wrap:anywhere">
-    <header><p><a href="/">余白。</a></p><h1>${escapeHtml(work.title)}</h1>${author}<p>${status}</p></header>
+    <header><p><a href="/">余白。</a></p><h1>${escapeHtml(work.title)}</h1>${author}<p style="font-size:11px;color:#69736c">${status}</p></header>
     ${work.summary?`<p>${escapeHtml(work.summary)}</p>`:''}
     ${work.body?`<details class="collapsible-body"${work.node_kind==='collection'?'':' open'}><summary>本文（クリックで開閉）</summary><article aria-label="作品本文">${isScreenplay(work)?screenplayHtml(work.body,value=>renderNoteHtml(value,v=>annotatedInline(v,work.id),undefined,'',noteLinks(work.body))):textBlock(work.body,'initial-work-body',work.id)}</article></details>`:''}
     ${toc}${chapters?`<section aria-label="下位作品の本文">${chapters}${more}</section>`:more}

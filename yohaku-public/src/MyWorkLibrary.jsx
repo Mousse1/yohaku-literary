@@ -1,4 +1,4 @@
-import {hasReviewBody} from './reviewEligibility.js'
+import {hasReviewBody,publicationText} from './reviewEligibility.js'
 import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, FolderTree, FileText, Plus, Clock, FileClock, Link as LinkIcon } from 'lucide-react'
 import { categoryOf, displayGenre } from './client'
@@ -79,7 +79,7 @@ export default function MyWorkLibrary({
             : <span className="owner-toggle-spacer" aria-hidden="true"/>}
           {isGroup ? <FolderTree size={18} className="owner-work-type-icon" aria-hidden="true"/> : <FileText size={17} className="owner-work-type-icon" aria-hidden="true"/>}
           <button className="owner-work-title" onClick={() => onRead(w)} title={node.path}>{w.title?.trim()||'無題の下書き'}</button>
-          <span className={'status'+(w.status==='published'?' published':'')}>{w.status==='open'&&w.review_state?`自由公開（${w.review_state==='pending'?'審査中':'差し戻し'}）`:statusText[w.status] || w.status}</span>
+          <span className={w.status==='published'&&hasReviewBody(w)?'publication-label reviewed':'status'}>{w.status==='open'&&w.review_state?`自由公開（${w.review_state==='pending'?'審査中':'差し戻し'}）`:w.status==='published'?publicationText(w):statusText[w.status] || w.status}</span>
           {isGroup&&<span className="owner-mini-tag">グループ</span>}
           {hasChildren&&<span className="owner-child-count">下位 {node.descendantCount} 件</span>}
           {!node.depth&&<span className="owner-mini-tag">最上位</span>}

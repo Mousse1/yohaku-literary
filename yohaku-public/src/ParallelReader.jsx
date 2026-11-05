@@ -1,3 +1,4 @@
+import PublicationLabel from './PublicationLabel'
 import ReadingNavigation from './ReadingNavigation'
 import {isScreenplay} from './screenplay'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
@@ -247,7 +248,7 @@ function ParallelPane({pane,index,available,otherSelections,fontSize,user,onLogi
     <div ref={scrollRef} className="parallel-pane-scroll" tabIndex={0} aria-label={`${name}の${types.find(t=>t[0]===pane.kind)?.[1]}。この領域をスクロールできます`}>
       {loadState==='loading' ? <p className="muted">読み込み中…</p> : loadState==='notfound'||loadState==='error' ? <div className="parallel-error"><p>{error||'作品を表示できません。'}</p><button className="button light small" onClick={()=>setRefresh(n=>n+1)}>再読み込み</button></div> :
         work && <>
-          <div className="parallel-work-info"><div className="eyebrow">{pane.kind==='body'?'TEXT':pane.kind==='notes'?'ANNOTATIONS':'REFERENCES'}</div><h2 className="serif">{work.title}</h2><p><span className={work.status==='open'?'publication-label unreviewed':'publication-label reviewed'}>{work.status==='open'?'自由公開・未審査':'審査済み公開'}</span>　作者：{work.pen_name}{work.contributor_credit&&<>　／　入力・構成：{work.contributor_credit}</>}</p></div>
+          <div className="parallel-work-info"><div className="eyebrow">{pane.kind==='body'?'TEXT':pane.kind==='notes'?'ANNOTATIONS':'REFERENCES'}</div><h2 className="serif">{work.title}</h2><p><PublicationLabel work={work}/>　作者：{work.pen_name}{work.contributor_credit&&<>　／　入力・構成：{work.contributor_credit}</>}</p></div>
           {pane.kind==='body' && <>
             {pane.focusLabel&&<p className="note-link-focus">注釈リンク：{pane.focusLabel}</p>}
             <button type="button" className="text-action" aria-pressed={wideReading} onClick={()=>setWideReading(v=>!v)}>{wideReading?'本文の幅を戻す':'本文を横に広げる'}</button>
