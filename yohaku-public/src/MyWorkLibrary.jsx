@@ -79,7 +79,7 @@ export default function MyWorkLibrary({
             : <span className="owner-toggle-spacer" aria-hidden="true"/>}
           {isGroup ? <FolderTree size={18} className="owner-work-type-icon" aria-hidden="true"/> : <FileText size={17} className="owner-work-type-icon" aria-hidden="true"/>}
           <button className="owner-work-title" onClick={() => onRead(w)} title={node.path}>{w.title?.trim()||'無題の下書き'}</button>
-          <span className={w.status==='published'&&hasReviewBody(w)?'publication-label reviewed':'status'}>{w.status==='open'&&w.review_state?`自由公開（${w.review_state==='pending'?'審査中':'差し戻し'}）`:w.status==='published'?publicationText(w):statusText[w.status] || w.status}</span>
+          <span className={w.status==='published'&&hasReviewBody(w)?'publication-label reviewed':'status'}>{!hasReviewBody(w)&&publicStatus(w.status)?'公開':w.status==='open'&&w.review_state?`自由公開（${w.review_state==='pending'?'審査中':'差し戻し'}）`:w.status==='published'?publicationText(w):statusText[w.status] || w.status}</span>
           {isGroup&&<span className="owner-mini-tag">グループ</span>}
           {hasChildren&&<span className="owner-child-count">下位 {node.descendantCount} 件</span>}
           {!node.depth&&<span className="owner-mini-tag">最上位</span>}
@@ -96,7 +96,7 @@ export default function MyWorkLibrary({
           {w.current_version>0&&<span>第{w.current_version}版</span>}
           {node.missingParent&&<span className="owner-missing">上位作品がこの一覧にありません</span>}
         </div>
-        {revision&&<p className="owner-notice"><FileClock size={14}/> 改訂案：{statusText[revision.status]||revision.status}{revision.review_note&&` — ${revision.review_note}`}</p>}
+        {revision&&!revision.review_exempt&&hasReviewBody(w)&&<p className="owner-notice"><FileClock size={14}/> 改訂案：{statusText[revision.status]||revision.status}{revision.review_note&&` — ${revision.review_note}`}</p>}
         {activeRequest&&<p className="owner-notice"><Clock size={14}/> {actionText[activeRequest.action]}申請：審査待ち <button className="text-action" disabled={busy} onClick={()=>onCancelRequest(activeRequest)}>取り消す</button></p>}
         {!activeRequest&&rejectedRequest&&<p className="owner-notice">{actionText[rejectedRequest.action]}申請は却下されました。{rejectedRequest.review_note}</p>}
         <div className="owner-work-actions">

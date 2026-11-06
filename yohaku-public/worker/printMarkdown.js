@@ -45,8 +45,12 @@ export function renderPrintMarkdown(source,{work={},origin='',included=new Set()
 }
 
 export const printMarkdownCss=`
-.print-markdown{line-height:1.6;overflow-wrap:anywhere}
-.print-markdown p{white-space:pre-wrap;margin:9pt 0;orphans:3;widows:3}
+.print-markdown{line-height:1.45;overflow-wrap:anywhere}
+/* remark-breaks already emits <br>. Rendering its trailing newline as well
+   with pre-wrap doubles each source line break. Indentation is preserved by
+   fullwidth/NBSP characters; code blocks retain their own pre-wrap rule. */
+.print-markdown p{white-space:normal;margin:0;orphans:2;widows:2}
+.print-markdown p+p{margin-top:1.45em}
 .export-record .print-markdown h1{font-size:18pt}.export-record .print-markdown h2{font-size:16pt}.export-record .print-markdown h3{font-size:14pt}
 .export-record .print-markdown h4,.export-record .print-markdown h5,.export-record .print-markdown h6{font-size:12pt}
 .print-markdown h1,.print-markdown h2,.print-markdown h3,.print-markdown h4,.print-markdown h5,.print-markdown h6{margin:16pt 0 7pt;line-height:1.45;break-after:avoid-page}
@@ -58,7 +62,7 @@ export const printMarkdownCss=`
 .print-markdown th,.print-markdown td{border:1px solid #c8beb1;padding:5pt;overflow-wrap:anywhere}.print-markdown tr{break-inside:avoid-page}
 .print-markdown hr{border:0;border-top:1px solid #c8beb1;margin:16pt 0}.print-markdown a{color:#654a3b}
 .print-markdown math[display="block"]{margin:12pt 0;overflow-wrap:anywhere}
-.print-markdown .body-paragraph-gap-3{margin-bottom:1.5em}.print-markdown .body-paragraph-gap-4{margin-bottom:2em}
-.print-markdown .body-paragraph-gap-5{margin-bottom:2.5em}.print-markdown .body-paragraph-gap-6{margin-bottom:3em}
-.print-markdown .body-paragraph-gap-7{margin-bottom:3.5em}.print-markdown .body-paragraph-gap-8{margin-bottom:4em}
+.print-markdown .body-paragraph-gap-3{margin-bottom:2.9em}.print-markdown .body-paragraph-gap-4{margin-bottom:4.35em}
+.print-markdown .body-paragraph-gap-5{margin-bottom:5.8em}.print-markdown .body-paragraph-gap-6{margin-bottom:7.25em}
+.print-markdown .body-paragraph-gap-7{margin-bottom:8.7em}.print-markdown .body-paragraph-gap-8{margin-bottom:10.15em}
 `
