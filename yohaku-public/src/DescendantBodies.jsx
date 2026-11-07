@@ -1,3 +1,4 @@
+import ReviewMark from './ReviewMark.jsx'
 import {isScreenplay} from './screenplay'
 import React, { useEffect, useMemo, useState } from 'react'
 import { configured, supabase, demoWorks, messageFor } from './client'
@@ -153,7 +154,7 @@ export function DescendantReadingItem({entry,body,fontSize=16,onAnnotationClick}
       <span aria-hidden="true">{isGroup?'▣':'§'}</span>
       <a href={`/works/${encodeURIComponent(entry.id)}`} title={title}>{title}</a>
     </div>}
-    {hasBody&&<div style={{paddingLeft:Math.min(entry.depth,8)*9}}><CollapsibleBody key={entry.id} label={isGroup?'本文':title}>
+    {hasBody&&<div style={{paddingLeft:Math.min(entry.depth,8)*9}}><CollapsibleBody key={entry.id} label={isGroup?'本文':<>{title}<ReviewMark work={entry}/></>}>
       {richBody}
       <a className="text-action" href={`/works/${encodeURIComponent(entry.id)}`}>この項目を単独で開く</a>
     </CollapsibleBody></div>}

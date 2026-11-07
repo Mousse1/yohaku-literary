@@ -1,3 +1,4 @@
+import {authorLabel} from '../src/workLabels.js'
 import {renderPrintMarkdown,printMarkdownCss} from './printMarkdown.js'
 import {screenplayCss} from '../src/screenplay.js'
 import {annotationLinks, markdownBody} from './publicAnnotations.js'
@@ -11,6 +12,8 @@ const canonicalUrl = (origin,id) => `${origin}/works/${id}`
 
 const recordAnchor = index => `yohaku-section-${index + 1}`
 const recordLabel = record => record.work.title || '無題'
+
+const exportAuthorLabel=doc=>authorLabel(doc.records.find(({work})=>work.contributor_credit?.trim())?.work || doc.root)
 
 function exportAuthors(doc) {
   const names=new Set([doc.root.pen_name,...doc.records.map(({work})=>work.pen_name)].filter(Boolean))
@@ -39,7 +42,7 @@ export function renderExportText(doc, origin, markdown=false) {
     return raw
   })
   const separator=markdown?'\n\n---\n\n':'\n\n'+'─'.repeat(24)+'\n\n'
-  return `${title}\n作者：${exportAuthors(doc)}\n公開作品の複製元：${canonicalUrl(origin,doc.root.id)}\n\n目次\n${doc.records.map((r,i)=>`${i+1}. ${recordLabel(r)}`).join('\n')}\n\n${sections.join(separator)}\n`
+  return `${title}\n${exportAuthorLabel(doc)}：${exportAuthors(doc)}\n公開作品の複製元：${canonicalUrl(origin,doc.root.id)}\n\n目次\n${doc.records.map((r,i)=>`${i+1}. ${recordLabel(r)}`).join('\n')}\n\n${sections.join(separator)}\n`
 }
 
 function htmlRecord(record, origin, main=false, index=0, included=new Set()) {
@@ -55,7 +58,7 @@ function htmlRecord(record, origin, main=false, index=0, included=new Set()) {
 }
 export function renderExportHtml(doc, origin) {
   const title=`${doc.root.title||'無題'}｜余白。`
-  const toc=`<nav class="export-toc" aria-label="目次"><h1>${escapeHtml(doc.root.title||'無題')}</h1><p class="credits">作者：${escapeHtml(exportAuthors(doc))}</p><h2>目次</h2><ol>${doc.records.map((r,i)=>`<li style="margin-left:${Math.min(Math.max(Number(r.depth)||0,0),12)*14}px"><a href="#${recordAnchor(i)}">${escapeHtml(recordLabel(r))}</a></li>`).join('')}</ol></nav>`
+  const toc=`<nav class="export-toc" aria-label="目次"><h1>${escapeHtml(doc.root.title||'無題')}</h1><p class="credits">${exportAuthorLabel(doc)}：${escapeHtml(exportAuthors(doc))}</p><h2>目次</h2><ol>${doc.records.map((r,i)=>`<li style="margin-left:${Math.min(Math.max(Number(r.depth)||0,0),12)*14}px"><a href="#${recordAnchor(i)}">${escapeHtml(recordLabel(r))}</a></li>`).join('')}</ol></nav>`
   return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escapeHtml(title)} — 印刷・PDF保存</title><style>
 ${screenplayCss}
 ${printMarkdownCss}
@@ -182,12 +185,12 @@ export async function serveWorkExport(request, env) {
 
 const mdLabel=value=>String(value||'').replace(/[\\`*_[\]<>]/g,'\\$&').replace(/[\r\n]+/g,' ')
 export function renderExportMarkdown(doc,origin,perWorkAuthors=false) {
-  const parts=[`# ${mdLabel(doc.root.title||'無題')}`,...(!perWorkAuthors?[`作者: ${mdLabel(exportAuthors(doc))}`]:[]),`原文・canonical: ${canonicalUrl(origin,doc.root.id)}`,`JSON: ${origin}/api/public/works/${doc.root.id}`,
+  const parts=[`# ${mdLabel(doc.root.title||'無題')}`,...(!perWorkAuthors?[`${exportAuthorLabel(doc)}: ${mdLabel(exportAuthors(doc))}`]:[]),`原文・canonical: ${canonicalUrl(origin,doc.root.id)}`,`JSON: ${origin}/api/public/works/${doc.root.id}`,
     '注釈は作品IDごとに区別します。各脚注は、その作品の本文の注釈番号と登録参考文献の明示的な対応を示します。読者の注釈は作者の参考文献とは別です。']
   parts.push('## 目次\n\n'+doc.records.map((r,i)=>`${'  '.repeat(Math.min(Math.max(Number(r.depth)||0,0),12))}- [${mdLabel(recordLabel(r))}](#${recordAnchor(i)})`).join('\n'))
   for(const [index,record] of doc.records.entries()){
     const w=record.work
-    parts.push(`<a id="${recordAnchor(index)}"></a>`, `## ${mdLabel(record.path||w.title)}`,`作品ID: ${w.id}${perWorkAuthors?`\n\n作者: ${mdLabel(w.pen_name)}`:''}${w.contributor_credit?`\n\n入力・構成: ${mdLabel(w.contributor_credit)}`:''}`,`原文: ${canonicalUrl(origin,w.id)}`)
+    parts.push(`<a id="${recordAnchor(index)}"></a>`, `## ${mdLabel(record.path||w.title)}`,`作品ID: ${w.id}${perWorkAuthors?`\n\n${authorLabel(w)}: ${mdLabel(w.pen_name)}`:''}${w.contributor_credit?`\n\n入力・構成: ${mdLabel(w.contributor_credit)}`:''}`,`原文: ${canonicalUrl(origin,w.id)}`)
     for(const [label,key] of [['概要','summary'],['作品の問い','question'],['継承するもの','inheritance'],['新たに試みること','novelty']])if(w[key])parts.push(`### ${label}\n\n${w[key]}`)
     parts.push('### 本文',markdownBody(w,origin))
     const annotations=annotationLinks(w,record.references)

@@ -224,7 +224,7 @@
 
 /* v7: publication review states */
 .publication-label { display:inline-flex;align-items:center;line-height:1.5;border:1px solid #c9c9c6;border-radius:3px;padding:2px 7px;font-size:11px;font-weight:600;white-space:nowrap;letter-spacing:.015em; }
-.publication-label.reviewed {background:transparent;color:#69736c;border:0;border-radius:0;padding:0;font-size:11px;font-weight:400;letter-spacing:0;}
+.publication-label.reviewed {background:#e8eee8;color:#345b48;border-color:#bad3c2;}
 .publication-label.unreviewed {background:#f0ece5;color:#655f56;border-color:#d8cbbd;}
 .reader-publication{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 15px;}
 .review-filter{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 20px;}
@@ -424,3 +424,10 @@
 .note-link-editor{border:1px solid var(--line);padding:14px;margin:16px 0}.note-link-editor label{margin:10px 0;display:block}.note-link{cursor:pointer;text-decoration:underline}.note-link-focus{padding:10px;border-left:3px solid var(--rust);background:var(--rust-light)}.rich-body [id^="note-"]{scroll-margin-top:20px}
 
 .reading-navigation{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin:22px 0}.reading-step{display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:0;padding:12px 16px;border:1px solid var(--line);background:var(--sheet);text-decoration:none}.reading-step.next{text-align:right}.reading-step>span{font-size:12px;color:var(--rust)}.reading-step strong{font-weight:500;overflow-wrap:anywhere}.reading-step:hover{background:var(--rust-light)}.reading-step.is-disabled{opacity:.55}.reading-step.is-disabled:hover{background:var(--sheet)}.reading-step small{color:var(--muted)}
+.works-grid{align-items:start}
+.work-card{min-height:0}
+.work-card h3{margin-top:0}
+.work-card .work-contents{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.work-contents>summary{cursor:pointer;color:var(--rust);font-size:13px}
+.work-card .work-title-link{text-decoration:none}
+.work-card .work-title-link:hover{text-decoration:underline}

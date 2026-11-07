@@ -1,4 +1,4 @@
-import {publicationText} from '../src/reviewEligibility.js'
+import {authorLabel,isReviewedBody} from '../src/workLabels.js'
 import {renderNoteHtml,noteLinks} from '../src/noteLinks.js'
 import {isScreenplay,screenplayHtml,screenplayCss} from '../src/screenplay.js'
 import {decodeGenres} from '../src/classifications.js'
@@ -49,13 +49,13 @@ export function renderPublicWorkHtml(template, work, references, tree, embedded,
   const info=[work.question&&['この作品が問うこと',work.question],work.inheritance&&['先行作品から継承するもの',work.inheritance],work.novelty&&['新たに試みること',work.novelty]]
     .filter(Boolean).map(([label,content])=>`<section><h2>${escapeHtml(label)}</h2>${textBlock(content,'initial-work-position')}</section>`).join('')
   const refs=referenceBlock(normalizedRefs,work.id,work)
-  const toc=tree.items.length ? `<nav aria-label="収録作品の目次"><h2>目次・収録作品</h2><ol>${tree.items.map(n=>`<li style="margin-left:${Math.min(n.depth,10)*12}px"><a href="${escapeHtml(publicLink(origin,n.id))}">${escapeHtml(n.title)}</a></li>`).join('')}</ol>${tree.truncated?'<p>目次は一部のみ表示しています。各作品から下位の作品をたどれます。</p>':''}</nav>` : ''
-  const chapters=embedded.items.map(n=>`<section class="initial-work-chapter ${n.node_kind==='collection'?'is-group':'is-body'}" id="chapter-${escapeHtml(n.id)}"><h3><a href="${escapeHtml(publicLink(origin,n.id))}">${escapeHtml(n.title||'本文')}</a></h3><p>作者：${escapeHtml(n.pen_name||work.pen_name||'不明')}</p>${n.body?`<details class="collapsible-body"><summary>本文（クリックで開く）</summary>${isScreenplay(n)?screenplayHtml(n.body,value=>renderNoteHtml(value,v=>annotatedInline(v,n.id),undefined,'',noteLinks(n.body))):textBlock(n.body,'initial-work-body',n.id)}</details>`:''}${referenceBlock((n.references||[]).map(publicReference),n.id,n)}${noteBlock(n.notes)}</section>`).join('')
+  const mark=w=>isReviewedBody(w)?' <small class="tree-review-mark" style="font-size:0.7rem">審査済</small>':''
+  const toc=tree.items.length ? `<nav aria-label="収録作品の目次"><h2>目次・収録作品</h2><ol>${tree.items.map(n=>`<li style="margin-left:${Math.min(n.depth,10)*12}px"><a href="${escapeHtml(publicLink(origin,n.id))}">${escapeHtml(n.title)}</a>${mark(n)}</li>`).join('')}</ol>${tree.truncated?'<p>目次は一部のみ表示しています。各作品から下位の作品をたどれます。</p>':''}</nav>` : ''
+  const chapters=embedded.items.map(n=>`<section class="initial-work-chapter ${n.node_kind==='collection'?'is-group':'is-body'}" id="chapter-${escapeHtml(n.id)}"><h3><a href="${escapeHtml(publicLink(origin,n.id))}">${escapeHtml(n.title||'本文')}</a>${mark(n)}</h3><p>${authorLabel(n)}：${escapeHtml(n.pen_name||work.pen_name||'不明')}${n.contributor_credit?' ／ 入力／構成：'+escapeHtml(n.contributor_credit):''}</p>${n.body?`<details class="collapsible-body"><summary>本文（クリックで開く）</summary>${isScreenplay(n)?screenplayHtml(n.body,value=>renderNoteHtml(value,v=>annotatedInline(v,n.id),undefined,'',noteLinks(n.body))):textBlock(n.body,'initial-work-body',n.id)}</details>`:''}${referenceBlock((n.references||[]).map(publicReference),n.id,n)}${noteBlock(n.notes)}</section>`).join('')
   const more=embedded.limited?'<p>収録作品の本文は先頭の一部を表示しています。残りは目次から各作品の全文を読めます。</p>':''
-  const status=publicationText(work)
-  const author=work.pen_name?`<p>作者：${escapeHtml(work.pen_name)}${work.contributor_credit?' ／ 入力・構成：'+escapeHtml(work.contributor_credit):''}</p>`:''
+  const author=work.pen_name?`<p>${authorLabel(work)}：${escapeHtml(work.pen_name)}${work.contributor_credit?' ／ 入力・構成：'+escapeHtml(work.contributor_credit):''}</p>`:''
   const content=`<main class="initial-public-work" style="max-width:850px;margin:2rem auto;padding:1rem;font-family:serif;line-height:1.45;overflow-wrap:anywhere">
-    <header><p><a href="/">余白。</a></p><h1>${escapeHtml(work.title)}</h1>${author}<p style="font-size:11px;color:#69736c">${status}</p></header>
+    <header><p><a href="/">余白。</a></p><h1>${escapeHtml(work.title)}${mark(work)}</h1>${author}</header>
     ${work.summary?`<p>${escapeHtml(work.summary)}</p>`:''}
     ${work.body?`<details class="collapsible-body"${work.node_kind==='collection'?'':' open'}><summary>本文（クリックで開閉）</summary><article aria-label="作品本文">${isScreenplay(work)?screenplayHtml(work.body,value=>renderNoteHtml(value,v=>annotatedInline(v,work.id),undefined,'',noteLinks(work.body))):textBlock(work.body,'initial-work-body',work.id)}</article></details>`:''}
     ${toc}${chapters?`<section aria-label="下位作品の本文">${chapters}${more}</section>`:more}

@@ -1,3 +1,5 @@
+import ReviewMark from './ReviewMark.jsx'
+import {authorLabel} from './workLabels.js'
 import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, FolderTree, FileText, Plus, Clock, FileClock, Link as LinkIcon } from 'lucide-react'
 import { categoryOf, displayGenre } from './client'
@@ -78,7 +80,7 @@ export default function MyWorkLibrary({
             : <span className="owner-toggle-spacer" aria-hidden="true"/>}
           {isGroup ? <FolderTree size={18} className="owner-work-type-icon" aria-hidden="true"/> : <FileText size={17} className="owner-work-type-icon" aria-hidden="true"/>}
           <button className="owner-work-title" onClick={() => onRead(w)} title={node.path}>{w.title?.trim()||'無題の下書き'}</button>
-          <span className={'status'+(w.status==='published'?' published':'')}>{isGroup&&publicStatus(w.status)?'公開':statusText[w.status] || w.status}</span>
+          <ReviewMark work={w}/>{(!publicStatus(w.status)||isGroup)&&<span className="status">{publicStatus(w.status)?'公開':statusText[w.status] || w.status}</span>}
           {isGroup&&<span className="owner-mini-tag">グループ</span>}
           {hasChildren&&<span className="owner-child-count">下位 {node.descendantCount} 件</span>}
           {!node.depth&&<span className="owner-mini-tag">最上位</span>}
@@ -89,7 +91,7 @@ export default function MyWorkLibrary({
         </div>
         {hasChildren&&!expanded&&node.latestWork?.id!==w.id&&<div className="owner-latest-child">最近編集：<button className="text-action" type="button" onClick={()=>node.latestWork.status==='published'?onRevise(node.latestWork):['draft','pending','rejected','open'].includes(node.latestWork.status)?onEdit(node.latestWork):onRead(node.latestWork)}>{node.latestWork.title?.trim()||'無題の下書き'}</button></div>}
         <div className="owner-work-details">
-          <span>作者：{w.pen_name}{w.contributor_credit ? ` · 入力／構成：${w.contributor_credit}` : ''}</span>
+          <span>{authorLabel(w)}：{w.pen_name}{w.contributor_credit ? ` · 入力／構成：${w.contributor_credit}` : ''}</span>
           <span>{categoryOf(w)} / {displayGenre(w.genre)}</span>
           <span>最終更新：{updatedFmt(w.updated_at||w.created_at)}</span>
           {w.current_version>0&&<span>第{w.current_version}版</span>}
