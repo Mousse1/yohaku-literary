@@ -70,6 +70,7 @@ export function organizeOwnerWorks(works = [], {childSort='manual'} = {}) {
       descendantCount,
       lastActivity,
       latestWork,
+      privateParent: parents.some(p=>p.owner_private || !['published','open'].includes(p.status)),
       depth: parents.length,
       path: [...parents.map(parent => parent.title), work.title].join(' › '),
       missingParent: Boolean(work.parent_work_id && !byId.has(work.parent_work_id)),

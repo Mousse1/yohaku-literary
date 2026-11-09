@@ -8,6 +8,11 @@ export const supabase = configured
   ? createClient(url, anon, { auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true } })
   : null
 
+// Public discovery uses exactly the same anonymous access as shared URLs.
+export const publicReader = configured
+  ? createClient(url, anon, {auth:{storageKey:'yohaku-public-reader',autoRefreshToken:false,persistSession:false,detectSessionInUrl:false}})
+  : null
+
 // The top-level field and its child genre are stored separately.
 export const categoryTree = builtInClassifications
 export const categorySections = Object.keys(categoryTree)

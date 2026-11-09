@@ -1,7 +1,8 @@
+import WorkTitle from './WorkTitle.jsx'
 import ReviewMark from './ReviewMark.jsx'
 import {isScreenplay} from './screenplay'
 import React, { useEffect, useMemo, useState } from 'react'
-import { configured, supabase, demoWorks, messageFor } from './client'
+import { configured, publicReader, demoWorks, messageFor } from './client'
 import RichBody from './RichBody'
 import CollapsibleBody from './CollapsibleBody'
 import { descendantsOf, hierarchyEntries, readingPageEntries } from './workHierarchy'
@@ -26,7 +27,7 @@ async function loadPublicDescendants(rootId) {
       // Each parent can own many chapters. Supabase/PostgREST may impose a
       // row limit, so paginate instead of silently dropping later chapters.
       for (let offset = 0; ; offset += 500) {
-        const {data, error} = await supabase.from('works')
+        const {data, error} = await publicReader.from('works')
           .select('id,title,parent_work_id,order_index,node_kind,status,created_at')
           .in('parent_work_id', pageParents)
           .in('status', PUBLIC_STATUSES)
@@ -110,7 +111,7 @@ export default function DescendantBodies({ rootWorkId, treeNodes = [], fontSize 
       try {
         // A separate query avoids downloading 200k-char bodies for every
         // descendant when a large textbook is opened.
-        const {data,error} = await supabase.from('works')
+        const {data,error} = await publicReader.from('works')
           .select('id,body,status,section,genre')
           .in('id',ids)
           .in('status',PUBLIC_STATUSES)
@@ -152,9 +153,9 @@ export function DescendantReadingItem({entry,body,fontSize=16,onAnnotationClick}
   return <article className={`descendant-reader-item ${isGroup?'is-group':'is-body'}`}>
     {(isGroup||!hasBody)&&<div className="descendant-reader-title" style={{paddingLeft:Math.min(entry.depth,8)*9}}>
       <span aria-hidden="true">{isGroup?'▣':'§'}</span>
-      <a href={`/works/${encodeURIComponent(entry.id)}`} title={title}>{title}</a>
+      <a href={`/works/${encodeURIComponent(entry.id)}`} title={title}><WorkTitle>{title}</WorkTitle></a>
     </div>}
-    {hasBody&&<div style={{paddingLeft:Math.min(entry.depth,8)*9}}><CollapsibleBody key={entry.id} label={isGroup?'本文':<>{title}<ReviewMark work={entry}/></>}>
+    {hasBody&&<div style={{paddingLeft:Math.min(entry.depth,8)*9}}><CollapsibleBody key={entry.id} label={isGroup?'本文':<><WorkTitle>{title}</WorkTitle><ReviewMark work={entry}/></>}>
       {richBody}
       <a className="text-action" href={`/works/${encodeURIComponent(entry.id)}`}>この項目を単独で開く</a>
     </CollapsibleBody></div>}

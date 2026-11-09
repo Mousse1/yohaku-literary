@@ -1,10 +1,11 @@
+import WorkTitle from './WorkTitle.jsx'
 import ReviewMark from './ReviewMark.jsx'
 import {authorLabel} from './workLabels.js'
 import ReadingNavigation from './ReadingNavigation'
 import {isScreenplay} from './screenplay'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { BookOpen, X, Plus, ArrowUpRight, RefreshCw, Type, Search, ChevronDown, Folder, FileText, Check } from 'lucide-react'
-import { configured, supabase, demoWorks, dateFmt, safeUrl, messageFor } from './client'
+import { configured, supabase, publicReader, demoWorks, dateFmt, safeUrl, messageFor } from './client'
 import RichBody from './RichBody'
 import DescendantReferences from './DescendantReferences'
 import ReaderErrorBoundary, { ReaderPartBoundary } from './ReaderErrorBoundary'
@@ -146,7 +147,7 @@ function ParallelWorkPicker({workId,available,otherSelections,missingName,onSele
     title={w.path||w.title}
   ><span className="parallel-work-option-main" style={{paddingLeft:!query?Math.min(w.depth||0,6)*10:0}}>
       {w.node_kind==='collection'?<Folder size={14} aria-hidden="true"/>:<FileText size={14} aria-hidden="true"/>}
-      <span>{w.title||'（無題）'}</span>{w.id===workId&&<Check size={14} aria-label="選択中"/>}
+      <span><WorkTitle>{w.title||'（無題）'}</WorkTitle></span>{w.id===workId&&<Check size={14} aria-label="選択中"/>}
     </span>{query&&w.path&&w.path!==w.title&&<small>{w.path}</small>}
   </button>
   return <div className="parallel-work-picker" ref={wrapperRef}>
@@ -203,7 +204,7 @@ function ParallelPane({pane,index,available,otherSelections,fontSize,user,onLogi
       return ()=>{active=false}
     }
     ;(async()=>{
-      const {data,error:workError}=await supabase.from('works')
+      const {data,error:workError}=await publicReader.from('works')
         .select('*,work_references(*)').eq('id',pane.workId).in('status',['published','open']).maybeSingle()
       if(!active)return
       if(workError||!data){setError(workError?messageFor(workError):'作品が見つからないか、非公開です。');setLoadState('notfound');return}
@@ -234,7 +235,7 @@ function ParallelPane({pane,index,available,otherSelections,fontSize,user,onLogi
   return <section className={'parallel-pane'+(wideReading?' parallel-pane-wide':'')} aria-label={`読書パネル${index+1}`}>
     <div className="parallel-pane-heading">
       <span className="parallel-pane-num">{index+1 < 10 ? `0${index+1}` : index+1}</span>
-      <strong className="serif" title={name}>{name}</strong>
+      <strong className="serif" title={name}><WorkTitle>{name}</WorkTitle></strong>
       {canRemove&&<button className="parallel-icon-button" type="button" onClick={onRemove} title="このパネルを閉じる" aria-label={`パネル${index+1}を閉じる`}><X size={17}/></button>}
     </div>
     <div className="parallel-pane-settings">
@@ -249,7 +250,7 @@ function ParallelPane({pane,index,available,otherSelections,fontSize,user,onLogi
     <div ref={scrollRef} className="parallel-pane-scroll" tabIndex={0} aria-label={`${name}の${types.find(t=>t[0]===pane.kind)?.[1]}。この領域をスクロールできます`}>
       {loadState==='loading' ? <p className="muted">読み込み中…</p> : loadState==='notfound'||loadState==='error' ? <div className="parallel-error"><p>{error||'作品を表示できません。'}</p><button className="button light small" onClick={()=>setRefresh(n=>n+1)}>再読み込み</button></div> :
         work && <>
-          <div className="parallel-work-info"><div className="eyebrow">{pane.kind==='body'?'TEXT':pane.kind==='notes'?'ANNOTATIONS':'REFERENCES'}</div><h2 className="serif">{work.title}<ReviewMark work={work}/></h2><p>{authorLabel(work)}：{work.pen_name}{work.contributor_credit&&<>　／　入力・構成：{work.contributor_credit}</>}</p></div>
+          <div className="parallel-work-info"><div className="eyebrow">{pane.kind==='body'?'TEXT':pane.kind==='notes'?'ANNOTATIONS':'REFERENCES'}</div><h2 className="serif"><WorkTitle>{work.title}</WorkTitle><ReviewMark work={work}/></h2><p>{authorLabel(work)}：{work.pen_name}{work.contributor_credit&&<>　／　入力・構成：{work.contributor_credit}</>}</p></div>
           {pane.kind==='body' && <>
             {pane.focusLabel&&<p className="note-link-focus">注釈リンク：{pane.focusLabel}</p>}
             <button type="button" className="text-action" aria-pressed={wideReading} onClick={()=>setWideReading(v=>!v)}>{wideReading?'本文の幅を戻す':'本文を横に広げる'}</button>

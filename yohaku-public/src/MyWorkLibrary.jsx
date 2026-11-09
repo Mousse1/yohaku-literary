@@ -1,3 +1,4 @@
+import WorkTitle from './WorkTitle.jsx'
 import ReviewMark from './ReviewMark.jsx'
 import {authorLabel} from './workLabels.js'
 import React, { useEffect, useMemo, useState } from 'react'
@@ -13,7 +14,7 @@ const updatedFmt = date => date ? new Date(date).toLocaleString('ja-JP',{year:'n
 
 export default function MyWorkLibrary({
   works = [], revisions = [], requests = [], busy = false, userId = null,
-  onRead, onCreateChild, onEdit, onDelete, onRevise, onRequest, onCancelRequest, onReorderChildren,
+  onVisibility, onRead, onCreateChild, onEdit, onDelete, onRevise, onRequest, onCancelRequest, onReorderChildren,
 }) {
   // Start everyone on saved manual order once; later explicit choices persist.
   const sortPrefKey=`yohaku:owner-child-sort:v7_7_1:${userId||'guest'}`
@@ -68,6 +69,7 @@ export default function MyWorkLibrary({
     const isGroup = w.node_kind === 'collection'
     const hasChildren = node.children.length > 0
     const expanded = expandedIds.has(w.id)
+    const visible=publicStatus(w.status) && !w.owner_private && !node.privateParent
     const revision = revisionByWork.get(w.id)
     const workRequests = requestsByWork.get(w.id) || []
     const activeRequest = workRequests.find(request => request.status === 'pending')
@@ -79,8 +81,8 @@ export default function MyWorkLibrary({
             ? <button type="button" className="owner-toggle" aria-label={`${w.title}の下位作品を${expanded ? '閉じる' : '開く'}`} aria-expanded={expanded} onClick={() => toggle(w.id)}>{expanded ? <ChevronDown size={17}/> : <ChevronRight size={17}/>}</button>
             : <span className="owner-toggle-spacer" aria-hidden="true"/>}
           {isGroup ? <FolderTree size={18} className="owner-work-type-icon" aria-hidden="true"/> : <FileText size={17} className="owner-work-type-icon" aria-hidden="true"/>}
-          <button className="owner-work-title" onClick={() => onRead(w)} title={node.path}>{w.title?.trim()||'無題の下書き'}</button>
-          <ReviewMark work={w}/>{(!publicStatus(w.status)||isGroup)&&<span className="status">{publicStatus(w.status)?'公開':statusText[w.status] || w.status}</span>}
+          <button className="owner-work-title" onClick={() => onRead(visible?w:{...w,owner_private:true})} title={node.path}><WorkTitle>{w.title?.trim()||'無題の下書き'}</WorkTitle></button>
+          <ReviewMark work={w}/>{publicStatus(w.status)&&!visible&&<span className="status">{node.privateParent?'上位が非公開':'非公開'}</span>}{(!publicStatus(w.status)||(isGroup&&visible))&&<span className="status">{publicStatus(w.status)?'公開':statusText[w.status] || w.status}</span>}
           {isGroup&&<span className="owner-mini-tag">グループ</span>}
           {hasChildren&&<span className="owner-child-count">下位 {node.descendantCount} 件</span>}
           {!node.depth&&<span className="owner-mini-tag">最上位</span>}
@@ -101,10 +103,11 @@ export default function MyWorkLibrary({
         {activeRequest&&<p className="owner-notice"><Clock size={14}/> {actionText[activeRequest.action]}申請：審査待ち <button className="text-action" disabled={busy} onClick={()=>onCancelRequest(activeRequest)}>取り消す</button></p>}
         {!activeRequest&&rejectedRequest&&<p className="owner-notice">{actionText[rejectedRequest.action]}申請は却下されました。{rejectedRequest.review_note}</p>}
         <div className="owner-work-actions">
-          <button className="text-action" onClick={() => onRead(w)}>読む・履歴</button>
+          <button className="text-action" onClick={() => onRead(visible?w:{...w,owner_private:true})}>読む・履歴</button>
           <button className="text-action" onClick={() => onCreateChild(w,'collection')}><FolderTree size={14}/> 下位グループ</button>
           <button className="text-action" onClick={() => onCreateChild(w,'work')}><Plus size={14}/> 本文を追加</button>
-          {publicStatus(w.status)&&<a className="text-action" href={`${window.location.origin}/works/${encodeURIComponent(w.id)}`}><LinkIcon size={13}/> 公開URL</a>}{publicStatus(w.status)&&<WorkExportLinks workId={w.id} compact/>}
+          {publicStatus(w.status)&&<button className="text-action" disabled={busy || (node.privateParent && w.owner_private)} onClick={()=>onVisibility(w,Boolean(w.owner_private))}>{w.owner_private?'公開に戻す':'非公開にする'}</button>}
+          {visible&&<a className="text-action" href={`${window.location.origin}/works/${encodeURIComponent(w.id)}`}><LinkIcon size={13}/> 公開URL</a>}{visible&&<WorkExportLinks workId={w.id} compact/>}
           {['draft','pending','rejected','open'].includes(w.status)&&<>
             <button className="text-action" onClick={()=>onEdit(w)}>編集</button>
             <button className="text-action dangerous" disabled={busy} onClick={()=>onDelete(w)}>削除</button>
@@ -112,7 +115,7 @@ export default function MyWorkLibrary({
           {w.status==='published'&&<>
             <button className="text-action" onClick={()=>onRevise(w)}>{revision?'改訂案を編集':'改訂版を書く'}</button>
             {!activeRequest&&<>
-              <button className="text-action" disabled={busy} onClick={()=>onRequest(w,'hide')}>公開停止を申請</button>
+  
               <button className="text-action dangerous" disabled={busy} onClick={()=>onRequest(w,'delete')}>削除を申請</button>
             </>}
           </>}

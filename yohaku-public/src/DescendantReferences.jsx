@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowUpRight, BookOpen } from 'lucide-react'
-import { configured, supabase, safeUrl, messageFor } from './client'
+import { configured, publicReader, safeUrl, messageFor } from './client'
 
 // The bibliography below is a READ-ONLY view.  A group's own references remain
 // separate and the per-work limit of 20 registered references is unchanged.
@@ -21,7 +21,7 @@ export default function DescendantReferences({ workId, enabled = true }) {
     ;(async () => {
       const all = []
       for (let offset = 0; ; offset += PAGE_SIZE) {
-        const { data, error } = await supabase.rpc('list_descendant_references', {
+        const { data, error } = await publicReader.rpc('list_descendant_references', {
           p_work_id: workId
         }).range(offset, offset + PAGE_SIZE - 1)
         if (error) throw error
@@ -33,7 +33,7 @@ export default function DescendantReferences({ workId, enabled = true }) {
       // Approved reader-supplied references, kept separate from author references.
       const community = []
       for (let offset = 0; ; offset += PAGE_SIZE) {
-        const { data, error } = await supabase.rpc('list_descendant_community_references', {
+        const { data, error } = await publicReader.rpc('list_descendant_community_references', {
           p_work_id: workId
         }).range(offset, offset + PAGE_SIZE - 1)
         if (error) throw error

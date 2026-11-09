@@ -1,3 +1,5 @@
+import WorkTitle from './WorkTitle.jsx'
+import {plainTitle} from './titleFormat.js'
 import ReviewMark from './ReviewMark.jsx'
 import {authorLabel} from './workLabels.js'
 import ReadingNavigation from './ReadingNavigation'
@@ -8,7 +10,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ArrowUpRight, ArrowRight, BookOpen, PenLine, GitCompareArrows, Search, ChevronDown, Plus, X, ShieldCheck, Flag, LogOut, Menu, Link as LinkIcon, Check, Eye, Clock, Trash2, History, FileClock, EyeOff, FolderTree, CornerDownRight, Undo2, Redo2 } from 'lucide-react'
 import { Turnstile } from '@marsidev/react-turnstile'
-import { supabase, configured, categoryTree, categorySections, categoryOf, displayGenre, genreMatches, reportReasons, demoWorks, dateFmt, messageFor, safeUrl } from './client'
+import { publicReader, supabase, configured, categoryTree, categorySections, categoryOf, displayGenre, genreMatches, reportReasons, demoWorks, dateFmt, messageFor, safeUrl } from './client'
 import RichBody from './RichBody'
 import ScreenplayEditor from './ScreenplayEditor'
 import {isScreenplay,screenplayDocument} from './screenplay'
@@ -38,7 +40,7 @@ const makeWorkUrl = id => new URL(`/works/${encodeURIComponent(id)}`, location.o
 const getRoute = () => getWorkIdFromPath() !== null
   ? 'work' : routeNames.includes(location.hash.substring(1)) ? location.hash.substring(1) : 'explore'
 const PUBLIC_WORK_STATUSES = ['published','open']
-const isPublicWork = work => Boolean(work && PUBLIC_WORK_STATUSES.includes(work.status))
+const isPublicWork = work => Boolean(work && !work.owner_private && PUBLIC_WORK_STATUSES.includes(work.status))
 const statusText = { draft:'下書き', pending:'審査待ち', published:'審査済み公開', open:'自由公開', rejected:'差し戻し', hidden:'非公開', approved:'承認済み', canceled:'取り消し' }
 const requestText = {hide:'公開停止',delete:'削除'}
 const safeStoredSize = (key, fallback, min, max) => {
@@ -79,7 +81,7 @@ function ChildTree({parentId,nodes,onSelect,depth=0}){
   if(depth>=12)return null
   const children=nodes.filter(w=>w.parent_work_id===parentId).sort(siblingSort)
   if(!children.length)return null
-  return <ul className={depth===0?'child-tree':'child-tree nested'}>{children.map(w=><li key={w.id}><button type="button" onClick={()=>onSelect(w.id)}>{w.node_kind==='collection'?<FolderTree size={14}/>:<CornerDownRight size={14}/>}<span>{w.title}</span><ReviewMark work={w}/></button><ChildTree parentId={w.id} nodes={nodes} onSelect={onSelect} depth={depth+1}/></li>)}</ul>
+  return <ul className={depth===0?'child-tree':'child-tree nested'}>{children.map(w=><li key={w.id}><button type="button" onClick={()=>onSelect(w.id)}>{w.node_kind==='collection'?<FolderTree size={14}/>:<CornerDownRight size={14}/>}<span><WorkTitle>{w.title}</WorkTitle></span><ReviewMark work={w}/></button><ChildTree parentId={w.id} nodes={nodes} onSelect={onSelect} depth={depth+1}/></li>)}</ul>
 }
 
 function App(){
@@ -143,7 +145,7 @@ function App(){
   useEffect(()=>{if(!configured)return;supabase.auth.getSession().then(({data})=>{setSession(data.session);setAuthReady(true)});const {data:{subscription}}=supabase.auth.onAuthStateChange((event,next)=>{setSession(next);if(event==='PASSWORD_RECOVERY'){setRecovery(true);setAuthOpen(true)}});return()=>subscription.unsubscribe()},[])
   const loadPublished = useCallback(async (p=0,append=false)=>{
     if(!configured) return
-    const {data,error}=await supabase.from('works').select('*, work_references(*)').in('status',PUBLIC_WORK_STATUSES).is('parent_work_id',null).order('created_at',{ascending:false}).range(p*18,p*18+17)
+    const {data,error}=await publicReader.from('works').select('*, work_references(*)').in('status',PUBLIC_WORK_STATUSES).is('parent_work_id',null).order('created_at',{ascending:false}).range(p*18,p*18+17)
     if(error){setNotice(`作品を取得できませんでした: ${messageFor(error)}`);return}
     setWorks(old=>append?[...old,...(data||[]).filter(w=>!old.some(v=>v.id===w.id))]:data||[])
     setPage(p);setMore((data||[]).length===18)
@@ -152,7 +154,7 @@ function App(){
     if(!configured){setTreeIndex(demoWorks);return}
     const collected=[]
     for(let start=0;start<10000;start+=1000){
-      const {data,error}=await supabase.from('works').select('id,title,parent_work_id,order_index,node_kind,status,created_at').in('status',PUBLIC_WORK_STATUSES).order('id',{ascending:true}).range(start,start+999)
+      const {data,error}=await publicReader.from('works').select('id,title,parent_work_id,order_index,node_kind,status,created_at').in('status',PUBLIC_WORK_STATUSES).order('id',{ascending:true}).range(start,start+999)
       if(error){setNotice(`階層目次を取得できませんでした: ${messageFor(error)}`);return}
       collected.push(...(data||[]))
       if((data||[]).length<1000)break
@@ -221,7 +223,7 @@ function App(){
     }
     ;(async()=>{
       try {
-        const {data,error}=await supabase.from('works')
+        const {data,error}=await publicReader.from('works')
           .select('*,work_references(*)')
           .eq('id',pathWorkId).in('status',PUBLIC_WORK_STATUSES).maybeSingle()
         if(!active)return
@@ -237,7 +239,7 @@ function App(){
   useEffect(()=>{
     const isPublicPage=route==='work'&&isPublicWork(selected)&&selected?.id===pathWorkId
     const original='余白。 — 文学の新しさを、読み比べる。'
-    document.title=isPublicPage?`${selected.title} — ${selected.pen_name} | 余白。`:original
+    document.title=isPublicPage?`${plainTitle(selected.title)} — ${selected.pen_name} | 余白。`:original
     const description=document.querySelector('meta[name="description"]')
     if(description)description.setAttribute('content',isPublicPage?String(selected.summary||'').slice(0,160):'文学・哲学・評論・科学の投稿と批評。原著者と入力・構成のクレジット、数式と参考文献に対応。')
     let canonical=document.querySelector('link[rel="canonical"]')
@@ -388,7 +390,7 @@ function App(){
   const left = works.find(w=>w.id===compareA)||works[0]
   const right = works.find(w=>w.id===compareB)||works.find(w=>w.id!==left?.id)
 
-  const workDialog = selected && <ReaderErrorBoundary key={selected.id} resetKey={selected.id} work={selected} treeNodes={treeIndex} onBack={()=>navigate('explore')}><WorkDialog key={selected.id} asPage={route==='work'} work={selected} user={user} notes={notes} revisions={revisions} onClose={()=>route==='work'?navigate('explore'):setSelected(null)} onCompare={()=>compareWork(selected)} onParallel={()=>parallelWork(selected)} onAnnotationClick={parallelAnnotation} onLogin={()=>setAuthOpen(true)} onReload={()=>loadWorkExtras(selected.id)} flash={flash} onEdit={()=>{setEditing(selected);navigate('submit')}} onRevise={()=>editPublished(selected)} onRequest={action=>requestAction(selected,action)} onDelete={()=>deleteWork(selected)} treeNodes={treeIndex} onOpenTreeWork={openWorkId} onCreateChild={kind=>createChild(selected,kind)}/></ReaderErrorBoundary>
+  const workDialog = selected && <ReaderErrorBoundary key={selected.id} resetKey={selected.id} work={selected} treeNodes={treeIndex} onBack={()=>navigate('explore')}><WorkDialog key={selected.id} asPage={route==='work'} work={selected} user={user} notes={notes} revisions={revisions} onClose={()=>route==='work'?navigate('explore'):setSelected(null)} onCompare={()=>compareWork(selected)} onParallel={()=>parallelWork(selected)} onAnnotationClick={parallelAnnotation} onLogin={()=>setAuthOpen(true)} onReload={()=>loadWorkExtras(selected.id)} flash={flash} onEdit={()=>{setEditing(selected);navigate('submit')}} onManageVisibility={()=>navigate('mine')} onRevise={()=>editPublished(selected)} onRequest={action=>requestAction(selected,action)} onDelete={()=>deleteWork(selected)} treeNodes={treeIndex} onOpenTreeWork={openWorkId} onCreateChild={kind=>createChild(selected,kind)}/></ReaderErrorBoundary>
 
   return <>
     <header className="header"><div className="container header-inner">
@@ -428,9 +430,9 @@ function App(){
     </main>)}
     {route==='parallel'&&<ParallelReader initialPanes={parallelSeed} publishedWorks={works} publishedIndex={treeIndex} user={user} onLogin={()=>setAuthOpen(true)} onExit={()=>navigate('explore')} onOpenSingle={openWorkId}/>}
     {route==='compare'&&<main className="container page"><div className="eyebrow">READ / COMPARE</div><h1 className="serif page-title">二つの作品を、読み比べる。</h1><p className="page-lead">投稿者が登録した「問い」「継承」「試み」「参考文献」を並べます。文学的価値や独創性を機械的に採点するものではありません。</p>
-      {works.length<2?<div className="empty">公開作品がまだ二つありません。</div>:<><div className="dual-controls"><label>作品 A<select value={left?.id||''} onChange={e=>setCompareA(e.target.value)}>{works.map(w=><option key={w.id} value={w.id}>{w.title} — {w.pen_name}{w.status==='open'?'（自由公開）':''}</option>)}</select></label><label>作品 B<select value={right?.id||''} onChange={e=>setCompareB(e.target.value)}>{works.map(w=><option key={w.id} value={w.id}>{w.title} — {w.pen_name}{w.status==='open'?'（自由公開）':''}</option>)}</select></label></div>
+      {works.length<2?<div className="empty">公開作品がまだ二つありません。</div>:<><div className="dual-controls"><label>作品 A<select value={left?.id||''} onChange={e=>setCompareA(e.target.value)}>{works.map(w=><option key={w.id} value={w.id}>{plainTitle(w.title)} — {w.pen_name}{w.status==='open'?'（自由公開）':''}</option>)}</select></label><label>作品 B<select value={right?.id||''} onChange={e=>setCompareB(e.target.value)}>{works.map(w=><option key={w.id} value={w.id}>{plainTitle(w.title)} — {w.pen_name}{w.status==='open'?'（自由公開）':''}</option>)}</select></label></div>
       {left?.id===right?.id&&<p className="caution">異なる作品を選ぶことをおすすめします。</p>}
-      <div className="comparison"><div className="comparison-head">比較の視点</div><div className="comparison-head">{left.title}<small>{authorLabel(left)}：{left.pen_name}{left.contributor_credit&&<> · 入力／構成：{left.contributor_credit}</>}</small></div><div className="comparison-head">{right.title}<small>{authorLabel(right)}：{right.pen_name}{right.contributor_credit&&<> · 入力／構成：{right.contributor_credit}</>}</small></div>
+      <div className="comparison"><div className="comparison-head">比較の視点</div><div className="comparison-head"><WorkTitle>{left.title}</WorkTitle><small>{authorLabel(left)}：{left.pen_name}{left.contributor_credit&&<> · 入力／構成：{left.contributor_credit}</>}</small></div><div className="comparison-head"><WorkTitle>{right.title}</WorkTitle><small>{authorLabel(right)}：{right.pen_name}{right.contributor_credit&&<> · 入力／構成：{right.contributor_credit}</>}</small></div>
       {[['作品の主題','theme'],['作品の問い','question'],['継承するもの','inheritance'],['新しく試みること','novelty']].map(([label,key])=><React.Fragment key={key}><div className="comparison-label">{label}</div><div>{left[key]||'—'}</div><div>{right[key]||'—'}</div></React.Fragment>)}
       <div className="comparison-label">参考文献・関連作品</div><div>{left.work_references?.length?left.work_references.map(r=><div key={r.id} className="comp-ref">{r.title}</div>):'—'}</div><div>{right.work_references?.length?right.work_references.map(r=><div key={r.id} className="comp-ref">{r.title}</div>):'—'}</div></div></>}
     </main>}
@@ -456,9 +458,18 @@ function App(){
         if(error)throw error
       }} onSubmit={saveRevision} disabled={loading} onCancel={()=>{setRevisionEditing(null);navigate('mine')}}/>}
     </main>}
-    {route==='mine'&&<main className="container page"><div className="eyebrow">MY LIBRARY</div><h1 className="serif page-title">自分の作品</h1><p className="page-lead">審査済み作品は「改訂版を書く」から新版を提出します。自由公開作品は作者自身が編集・削除でき、管理者による承認の対象にはなりません。審査済み作品は承認まで旧版を公開し続け、承認済みの版は履歴に保存されます。公開停止・削除は管理者への申請制です。</p><p className="hint">{dailyLimitText}</p><div className="section-heading"><p>{mine.length} 作品</p><div className="group-actions"><button className="button light" disabled={loading} onClick={()=>beginCreation('collection')}><FolderTree size={16}/> 最上位グループを作成</button><button className="button primary" disabled={loading} onClick={()=>beginCreation('work')}><Plus size={16}/>新しい作品を書く</button></div></div>
+    {route==='mine'&&<main className="container page"><div className="eyebrow">MY LIBRARY</div><h1 className="serif page-title">自分の作品</h1><p className="page-lead">審査済み作品は「改訂版を書く」から新版を提出します。自由公開作品は作者自身が編集・削除でき、管理者による承認の対象にはなりません。審査済み作品は承認まで旧版を公開し続け、承認済みの版は履歴に保存されます。公開後も作品ごとに公開・非公開を選べます。</p><p className="hint">{dailyLimitText}</p><div className="section-heading"><p>{mine.length} 作品</p><div className="group-actions"><button className="button light" disabled={loading} onClick={()=>beginCreation('collection')}><FolderTree size={16}/> 最上位グループを作成</button><button className="button primary" disabled={loading} onClick={()=>beginCreation('work')}><Plus size={16}/>新しい作品を書く</button></div></div>
       {!mine.length ? <div className="empty">まだ投稿作品がありません。</div> : <MyWorkLibrary
         works={mine} revisions={myRevisions} requests={myRequests} busy={loading} userId={user?.id}
+        onVisibility={async(work,makePublic)=>{
+          setLoading(true)
+          try {
+            const {error}=await supabase.rpc('set_my_work_visibility',{p_work_id:work.id,p_public:makePublic})
+            if(error) throw error
+            await Promise.all([loadMine(),loadTree(),loadPublished()])
+            flash(makePublic?'公開設定を「公開」にしました。':'非公開にしました。')
+          } catch(error){flash(messageFor(error))} finally {setLoading(false)}
+        }}
         onRead={openWork} onCreateChild={createChild}
         onEdit={w=>{setEditing(w);navigate('submit')}} onDelete={deleteWork}
         onRevise={editPublished} onRequest={requestAction} onCancelRequest={cancelRequest}
@@ -474,7 +485,7 @@ function App(){
 
     </main>}
     {route==='about'&&<main className="container page prose-page"><div className="eyebrow">ABOUT THIS PLACE</div><h1 className="serif page-title">新しい文学に、文脈を。</h1><p className="large-lead serif">作品を孤立した一冊としてではなく、過去の文学と未来の読者につながる問いとして読む。</p><h2>何を目指しているのか</h2><p>「余白。」は、小説・評論・映画・ノベルゲーム・科学記事の投稿・比較・批評の場です。作品本文、投稿者が提示する新規性の仮説、参考文献、読者の批評を同じ場所に置くことで、作品の可能性を議論できるようにします。原著者と入力／構成の担当者も区別して記録できます。</p><h2>独創性を点数化しない</h2><p>ある作品が先行作品と似ていることは、価値がないことを意味しません。伝統の継承、技法の転用、思想の変形など、多面的に比較することを重視します。作者の説明は自己申告であり、運営が真実と認定したものではありません。</p><h2>投稿の審査について</h2><p>投稿者は作品を自由公開するか審査へ提出するか選べます。注釈・文献提案は公開前に審査します。審査は法令・権利・利用規約などに関する運営上の確認であって、文学的価値の保証ではありません。</p><button className="button light" onClick={()=>navigate('rules')}>投稿ガイドラインを読む <ArrowUpRight size={15}/></button></main>}
-    {route==='admin'&&<main className="container page"><div className="eyebrow">MODERATION</div><h1 className="serif page-title">管理・審査</h1>{!isMod?<div className="empty">管理権限がありません。</div>:<><ClassificationModeration/><div className="admin-row"><h2>作品の審査 <span>{adminData.works.length}</span></h2>{adminData.works.map(w=><div className="moderation-item" key={w.id}><div><strong>{w.title}</strong><small>{authorLabel(w)}：{w.pen_name}{w.contributor_credit&&` · 入力／構成：${w.contributor_credit}`} · {statusText[w.status]} · {dateFmt(w.created_at)}</small></div><div className="buttons"><button className="button light small" onClick={async()=>{const {data}=await supabase.from('works').select('*,work_references(*)').eq('id',w.id).single();if(data)openWork(data)}}>本文を見る</button><button className="button primary small" disabled={loading} onClick={()=>publishOperation('works',w.id,{status:'published'})}>承認</button><button className="button light small" disabled={loading} onClick={()=>publishOperation('works',w.id,{status:'rejected'})}>差し戻す</button><button className="button ghost-danger small" disabled={loading} onClick={()=>publishOperation('works',w.id,{status:'hidden'})}>非公開にする</button></div></div>)}</div>
+    {route==='admin'&&<main className="container page"><div className="eyebrow">MODERATION</div><h1 className="serif page-title">管理・審査</h1>{!isMod?<div className="empty">管理権限がありません。</div>:<><ClassificationModeration/><div className="admin-row"><h2>作品の審査 <span>{adminData.works.length}</span></h2>{adminData.works.map(w=><div className="moderation-item" key={w.id}><div><strong><WorkTitle>{w.title}</WorkTitle></strong><small>{authorLabel(w)}：{w.pen_name}{w.contributor_credit&&` · 入力／構成：${w.contributor_credit}`} · {statusText[w.status]} · {dateFmt(w.created_at)}</small></div><div className="buttons"><button className="button light small" onClick={async()=>{const {data}=await supabase.from('works').select('*,work_references(*)').eq('id',w.id).single();if(data)openWork(data)}}>本文を見る</button><button className="button primary small" disabled={loading} onClick={()=>publishOperation('works',w.id,{status:'published'})}>承認</button><button className="button light small" disabled={loading} onClick={()=>publishOperation('works',w.id,{status:'rejected'})}>差し戻す</button><button className="button ghost-danger small" disabled={loading} onClick={()=>publishOperation('works',w.id,{status:'hidden'})}>非公開にする</button></div></div>)}</div>
       <div className="admin-row"><h2>改訂案の再審査 <span>{adminData.revisions.length}</span></h2>{!adminData.revisions.length&&<p className="muted">審査待ちの改訂案はありません。</p>}{adminData.revisions.map(v=><div className="moderation-item" key={v.id}><div><strong>{v.works?.title||'作品'} → {v.snapshot.title}</strong><small>現在 第{v.works?.current_version||1}版 · {dateFmt(v.created_at)}</small><p className="multiline">変更点：{v.change_note||'記載なし'}</p></div><div className="buttons"><button className="button light small" onClick={async()=>{const {data}=await supabase.from('works').select('*,work_references(*)').eq('id',v.work_id).single();if(data)openWork(data)}}>現行版を見る</button><button className="button light small" onClick={()=>openWork({...v.snapshot,id:v.work_id,author_id:v.author_id,work_references:v.refs,status:'pending'})}>改訂案を読む</button><button className="button primary small" disabled={loading} onClick={()=>reviewRevision(v,'approve')}>新版を承認</button><button className="button light small" disabled={loading} onClick={()=>reviewRevision(v,'reject')}>差し戻す</button></div></div>)}</div>
       <div className="admin-row"><h2>公開停止・削除申請 <span>{adminData.requests.length}</span></h2>{!adminData.requests.length&&<p className="muted">対応待ちの申請はありません。</p>}{adminData.requests.map(r=><div className="moderation-item" key={r.id}><div><strong>{r.works?.title||'作品'} · {requestText[r.action]}申請</strong><small>{r.works?.pen_name} · {dateFmt(r.created_at)}</small><p className="multiline">申請理由：{r.reason||'記載なし'}</p></div><div className="buttons"><button className="button primary small" disabled={loading} onClick={()=>reviewRequest(r,'approve')}>承認</button><button className="button light small" disabled={loading} onClick={()=>reviewRequest(r,'reject')}>却下</button></div></div>)}</div>
       <div className="admin-row"><h2>読者の注釈 <span>{adminData.notes.length}</span></h2>{adminData.notes.map(n=><div className="moderation-item" key={n.id}><div><strong>{n.type} / {n.pen_name}</strong><p className="multiline">{n.body}</p></div><div className="buttons"><button className="button primary small" disabled={loading} onClick={()=>publishOperation('notes',n.id,{status:'published'})}>承認</button><button className="button ghost-danger small" disabled={loading} onClick={()=>publishOperation('notes',n.id,{status:'hidden'})}>却下</button></div></div>)}</div>
@@ -501,8 +512,8 @@ function WorkCard({work,onRead,onCompare,onParallel,demo,treeNodes=[],onOpenTree
     <h3 className="serif">{titleLink
       ? <a className="work-title-link" href={makeWorkUrl(work.id)} onClick={e=>{
           if(e.button===0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey){e.preventDefault();onRead()}
-        }}>{work.title}</a>
-      : <button type="button" className="work-title-link" onClick={onRead}>{work.title}</button>
+        }}><WorkTitle>{work.title}</WorkTitle></a>
+      : <button type="button" className="work-title-link" onClick={onRead}><WorkTitle>{work.title}</WorkTitle></button>
     }<ReviewMark work={work}/></h3>
     <div className="byline">{authorLabel(work)}：{work.pen_name}
       {work.contributor_credit?.trim()&&<div>入力／構成：{work.contributor_credit}</div>}
@@ -522,7 +533,7 @@ function WorkCard({work,onRead,onCompare,onParallel,demo,treeNodes=[],onOpenTree
   </article>
 }
 
-function WorkDialog({asPage=false,work,user,notes,revisions,onClose,onCompare,onParallel,onAnnotationClick,onLogin,onReload,flash,onEdit,onRevise,onRequest,onDelete,treeNodes=[],onOpenTreeWork,onCreateChild}){
+function WorkDialog({asPage=false,work,user,notes,revisions,onClose,onCompare,onParallel,onAnnotationClick,onLogin,onReload,flash,onEdit,onRevise,onManageVisibility,onRequest,onDelete,treeNodes=[],onOpenTreeWork,onCreateChild}){
   const [reportOpen,setReportOpen]=useState(false),[reason,setReason]=useState(reportReasons[0]),[detail,setDetail]=useState(''),[busy,setBusy]=useState(false)
   const [historyPreview,setHistoryPreview]=useState(null)
   const [wideReading,setWideReading]=useState(false)
@@ -554,14 +565,14 @@ function WorkDialog({asPage=false,work,user,notes,revisions,onClose,onCompare,on
     document.body.style.overflow='hidden'
     return()=>{window.removeEventListener('keydown',fn);document.body.style.overflow=''}
   },[asPage,onClose])
-  return <div className={(asPage?'standalone-reader':'overlay')+(wideReading?' reader-wide':'')} onMouseDown={e=>{if(!asPage&&e.target===e.currentTarget)onClose()}}><article className={'dialog work-dialog'+(wideReading?' reader-wide':'')} role={asPage?undefined:'dialog'} aria-modal={asPage?undefined:true} aria-labelledby="dialog-title"><button className="close" onClick={onClose} aria-label="閉じる"><X size={20}/></button><div className="eyebrow">READ / RELATE / RESPOND</div><h2 className="serif work-title" id="dialog-title">{work.title}<ReviewMark work={work}/></h2><div className="byline work-credits"><span>{authorLabel(work)}：<strong>{work.pen_name}</strong></span>{work.contributor_credit&&<span>入力／構成：<strong>{work.contributor_credit}</strong></span>}<span>分類：{categoryOf(work)} / {displayGenre(work.genre)}</span><span>主題：{work.theme||'未設定'}</span></div>{work.summary&&<p className="work-intro">{work.summary}</p>}
+  return <div className={(asPage?'standalone-reader':'overlay')+(wideReading?' reader-wide':'')} onMouseDown={e=>{if(!asPage&&e.target===e.currentTarget)onClose()}}><article className={'dialog work-dialog'+(wideReading?' reader-wide':'')} role={asPage?undefined:'dialog'} aria-modal={asPage?undefined:true} aria-labelledby="dialog-title"><button className="close" onClick={onClose} aria-label="閉じる"><X size={20}/></button><div className="eyebrow">READ / RELATE / RESPOND</div><h2 className="serif work-title" id="dialog-title"><WorkTitle>{work.title}</WorkTitle><ReviewMark work={work}/></h2><div className="byline work-credits"><span>{authorLabel(work)}：<strong>{work.pen_name}</strong></span>{work.contributor_credit&&<span>入力／構成：<strong>{work.contributor_credit}</strong></span>}<span>分類：{categoryOf(work)} / {displayGenre(work.genre)}</span><span>主題：{work.theme||'未設定'}</span></div>{work.summary&&<p className="work-intro">{work.summary}</p>}
   {configured&&<nav className="work-breadcrumbs" aria-label="作品の階層"><button type="button" onClick={onClose}>作品一覧</button>{(()=>{
     const byId=new Map(treeNodes.map(n=>[n.id,n])), parents=[]
     let cursor=byId.get(work.parent_work_id),iterations=0
     while(cursor&&iterations++<12){parents.unshift(cursor);cursor=byId.get(cursor.parent_work_id)}
     return parents.map(p=><React.Fragment key={p.id}><span> › </span><button type="button" onClick={()=>onOpenTreeWork(p.id)}>{p.title}</button></React.Fragment>)
   })()}<span> › {work.title}</span></nav>}
-  <div className="work-toolbar">{configured&&isPublicWork(work)&&uuidPattern.test(work.id)&&<button className="button primary small" onClick={shareWork}><LinkIcon size={15}/>作品のURLを共有</button>}{configured&&isPublicWork(work)&&uuidPattern.test(work.id)&&<WorkExportLinks workId={work.id}/>}<button className="button light small" onClick={onCompare}><GitCompareArrows size={15}/>この作品を比較</button>{isPublicWork(work)&&<button className="button light small" onClick={onParallel}><BookOpen size={15}/>並べて読む</button>}{editable&&<><button className="button light small" onClick={onEdit}><PenLine size={15}/>編集する</button><button className="button ghost-danger small" onClick={onDelete}>削除</button></>}{isOwn&&work.status==='published'&&<><button className="button light small" onClick={onRevise}><PenLine size={15}/>改訂版を書く</button><button className="button light small" onClick={()=>onRequest('hide')}><EyeOff size={15}/>公開停止申請</button><button className="button ghost-danger small" onClick={()=>onRequest('delete')}>削除申請</button></>}{configured&&isPublicWork(work)&&user&&!isOwn&&<button className="button light small" onClick={()=>setReportOpen(x=>!x)}><Flag size={14}/>通報</button>}</div>
+  <div className="work-toolbar">{isOwn&&PUBLIC_WORK_STATUSES.includes(work.status)&&<button className="button light small" onClick={onManageVisibility}>公開設定</button>}{configured&&isPublicWork(work)&&uuidPattern.test(work.id)&&<button className="button primary small" onClick={shareWork}><LinkIcon size={15}/>作品のURLを共有</button>}{configured&&isPublicWork(work)&&uuidPattern.test(work.id)&&<WorkExportLinks workId={work.id}/>}<button className="button light small" onClick={onCompare}><GitCompareArrows size={15}/>この作品を比較</button>{isPublicWork(work)&&<button className="button light small" onClick={onParallel}><BookOpen size={15}/>並べて読む</button>}{editable&&<><button className="button light small" onClick={onEdit}><PenLine size={15}/>編集する</button><button className="button ghost-danger small" onClick={onDelete}>削除</button></>}{isOwn&&work.status==='published'&&<><button className="button light small" onClick={onRevise}><PenLine size={15}/>改訂版を書く</button><button className="button ghost-danger small" onClick={()=>onRequest('delete')}>削除申請</button></>}{configured&&isPublicWork(work)&&user&&!isOwn&&<button className="button light small" onClick={()=>setReportOpen(x=>!x)}><Flag size={14}/>通報</button>}</div>
   {reportOpen&&<form className="report-box" onSubmit={doReport}><label>通報理由<select value={reason} onChange={e=>setReason(e.target.value)}>{reportReasons.map(s=><option key={s}>{s}</option>)}</select></label><label>補足（任意）<textarea maxLength={1000} value={detail} onChange={e=>setDetail(e.target.value)}/></label><button className="button primary small" disabled={busy}>通報を送信</button></form>}
   <div className="reading-controls" aria-label="本文の文字サイズ"><span>本文の文字サイズ</span><button className="button light small" type="button" onClick={()=>setReaderSize(v=>Math.max(12,v-2))} disabled={readerSize<=12} aria-label="本文を小さく">A−</button><strong aria-live="polite">{readerSize}px</strong><button className="button light small" type="button" onClick={()=>setReaderSize(v=>Math.min(26,v+2))} disabled={readerSize>=26} aria-label="本文を大きく">A＋</button><button className="text-action" type="button" onClick={()=>setReaderSize(16)}>標準に戻す</button><button type="button" className="button light small" aria-pressed={wideReading} onClick={()=>setWideReading(v=>!v)}>{wideReading?'本文の幅を戻す':'本文を横に広げる'}</button></div>
   <ReadingNavigation work={work} nodes={treeNodes} onOpen={onOpenTreeWork}/><div className="work-layout"><section><div className="eyebrow">{work.node_kind==='collection'?'COLLECTION / INTRO':'TEXT / ARTICLE'}</div>{work.body?.trim() ? <CollapsibleBody key={work.id} defaultOpen={work.node_kind!=='collection'}><ReaderPartBoundary key={`body-${work.id}`} fallback={<pre className="reader-raw-body">{work.body}</pre>}><RichBody screenplay={isScreenplay(work)} source={work.body} fontSize={readerSize} onAnnotationClick={isPublicWork(work) ? number => onAnnotationClick(work.id,number) : undefined}/></ReaderPartBoundary></CollapsibleBody> : !isPublicWork(work) && <p className="muted">この項目には本文がありません。</p>}<ReaderPartBoundary key={`desc-${work.id}`} fallback={<p role="alert">下位作品を表示できませんでした。ページを再読み込みしてください。</p>}><DescendantBodies rootWorkId={work.id} treeNodes={treeNodes} fontSize={readerSize} enabled={isPublicWork(work)} onAnnotationClick={onAnnotationClick}/></ReaderPartBoundary></section><aside className="work-sidebar"><h3>{work.node_kind==='collection'?'グループ全体が問うこと':'作品の問い'}</h3><p>{work.question||'未記載'}</p><h3>先行作品から受け継ぐもの</h3><p>{work.inheritance||'未記載'}</p><h3>新たに試みること</h3><p>{work.novelty||'未記載'}</p><h3>参考文献・関連作品</h3>{work.work_references?.length?work.work_references.map((r,i)=><div className="reference" key={r.id||i}><strong>{unpackReference(r).annotationNumber ? `*${unpackReference(r).annotationNumber}　` : ''}{unpackReference(r).title}</strong>{r.relation&&<span>{r.relation}</span>}{safeUrl(r.url)&&<a href={safeUrl(r.url)} target="_blank" rel="noopener noreferrer">文献のリンク <ArrowUpRight size={12}/></a>}</div>):<p>登録されていません。</p>}<ReaderPartBoundary key={`community-${work.id}`}><CommunityReferences workId={isPublicWork(work)?work.id:null} user={user} onLogin={onLogin}/></ReaderPartBoundary><ReaderPartBoundary key={`references-${work.id}`}><DescendantReferences workId={work.id} enabled={isPublicWork(work)} /></ReaderPartBoundary><p className="hint">これらの記述は投稿者／入力・構成者による解釈や仮説であり、原著者の見解や独創性を運営が保証するものではありません。</p></aside></div>
@@ -606,12 +617,16 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
   const markdownFileRef=useRef(null)
   const markdownRead=useRef(0)
   useEffect(()=>{try{localStorage.setItem('yohaku_editor_size',String(editorSize))}catch{}},[editorSize])
-  const insertMarkup=(before,after='',placeholder='文章')=>{
-    const field=editorRef.current
-    const start=field?.selectionStart ?? fields.body.length
+  const titleRef=useRef(null)
+  const insertMarkup=(before,after='',placeholder='文章',key='body')=>{
+    const field=key==='title'?titleRef.current:editorRef.current
+    const value=fields[key]
+    const start=field?.selectionStart ?? value.length
     const end=field?.selectionEnd ?? start
-    const chosen=fields.body.slice(start,end)||placeholder
-    update('body',fields.body.slice(0,start)+before+chosen+after+fields.body.slice(end))
+    const chosen=value.slice(start,end)||placeholder
+    const next=value.slice(0,start)+before+chosen+after+value.slice(end)
+    if(field && next.length>field.maxLength){alert('文字数上限を超えます。');return}
+    update(key,next)
     requestAnimationFrame(()=>{field?.focus();field?.setSelectionRange(start+before.length,start+before.length+chosen.length)})
   }
   const insertAnnotationPlaceholder=()=>{
@@ -806,7 +821,7 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
     </div>
     <button type="button" className="button light small editor-recovery-discard" disabled={submitting.current||discarding} onClick={discardChanges}>変更を破棄する</button>
   </div>
-  <div className="editor-section"><div className="section-small">01 / 基本情報</div><div className="two-col"><Field label="作品名 *"><input required maxLength={180} value={fields.title} onChange={e=>update('title',e.target.value)}/></Field><Field label={authorLabel(fields)+' *'}><input required maxLength={80} value={fields.pen_name} onChange={e=>update('pen_name',e.target.value)}/></Field><Field label="入力／構成（任意）"><input maxLength={120} value={fields.contributor_credit} onChange={e=>update('contributor_credit',e.target.value)}/></Field><Field label="分野 *"><select value={fields.section} onChange={e=>{const section=e.target.value;setFields(o=>({...o,section,genre:'[]'}))}}>{categorySections.map(c=><option key={c} value={c}>{c}</option>)}</select></Field><ClassificationPicker section={fields.section} value={fields.genre} onChange={value=>update('genre',value)} user={user}/><Field label="登録するもの"><select value={fields.node_kind||'work'} onChange={e=>update('node_kind',e.target.value)}><option value="work">作品・本文（10〜200,000文字）</option><option value="collection">グループ／部／章（本文不要・下位グループ可）</option></select></Field><Field label="収録先の作品（任意）"><select value={fields.parent_work_id||''} onChange={e=>update('parent_work_id',e.target.value||null)}><option value="">最上位の作品として掲載</option>{parentOptions.map(({work,depth,path})=><option key={work.id} value={work.id}>{'　'.repeat(depth)}{depth?'↳ ':''}{path}（{statusText[work.status]||'作品'}）</option>)}</select></Field>
+  <div className="editor-section"><div className="section-small">01 / 基本情報</div><div className="two-col"><div><Field label="作品名 *"><input ref={titleRef} required maxLength={180} value={fields.title} onChange={e=>update('title',e.target.value)}/></Field><button type="button" className="button light small" onClick={()=>insertMarkup('~~','~~','作品名','title')}>作品名に中線</button></div><Field label={authorLabel(fields)+' *'}><input required maxLength={80} value={fields.pen_name} onChange={e=>update('pen_name',e.target.value)}/></Field><Field label="入力／構成（任意）"><input maxLength={120} value={fields.contributor_credit} onChange={e=>update('contributor_credit',e.target.value)}/></Field><Field label="分野 *"><select value={fields.section} onChange={e=>{const section=e.target.value;setFields(o=>({...o,section,genre:'[]'}))}}>{categorySections.map(c=><option key={c} value={c}>{c}</option>)}</select></Field><ClassificationPicker section={fields.section} value={fields.genre} onChange={value=>update('genre',value)} user={user}/><Field label="登録するもの"><select value={fields.node_kind||'work'} onChange={e=>update('node_kind',e.target.value)}><option value="work">作品・本文（10〜200,000文字）</option><option value="collection">グループ／部／章（本文不要・下位グループ可）</option></select></Field><Field label="収録先の作品（任意）"><select value={fields.parent_work_id||''} onChange={e=>update('parent_work_id',e.target.value||null)}><option value="">最上位の作品として掲載</option>{parentOptions.map(({work,depth,path})=><option key={work.id} value={work.id}>{'　'.repeat(depth)}{depth?'↳ ':''}{path}（{statusText[work.status]||'作品'}）</option>)}</select></Field>
   <Field label="同じ階層内の並び順"><input type="number" min="0" max="9999" value={fields.order_index??0} onChange={e=>update('order_index',e.target.value)} /></Field>
   <Field label="主題"><input maxLength={200} value={fields.theme} onChange={e=>update('theme',e.target.value)}/></Field></div><Field label={fields.node_kind==='collection'?'グループの説明（任意）':'作品紹介（任意）'}><textarea maxLength={1000} rows={3} value={fields.summary} onChange={e=>update('summary',e.target.value)}/></Field>{fields.node_kind==='work'&&<><div className="writing-toolbar" aria-label="執筆ツール">
     <strong>書式・数式</strong>
@@ -815,6 +830,7 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
     <button type="button" className="button light small" onClick={()=>insertMarkup('## ','','小見出し')}>見出し</button>
     <button type="button" className="button light small" onClick={insertAnnotationPlaceholder}>注釈番号 **</button>
     <button type="button" className="button light small" onClick={()=>insertMarkup('**','**','強調')}>太字</button>
+    <button type="button" className="button light small" onClick={()=>insertMarkup('~~','~~','中線')}>中線</button>
     <button type="button" className="button light small" onClick={()=>insertMarkup('$','$','E=mc^2')}>数式（行内）</button>
     <button type="button" className="button light small" onClick={()=>insertMarkup('\n$$\n','\n$$\n',String.raw`\int_0^1 x^2\,dx=\frac{1}{3}`)}>数式（独立行）</button>
     <span className="toolbar-spacer" />
