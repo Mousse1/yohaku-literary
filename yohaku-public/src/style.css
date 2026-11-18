@@ -431,3 +431,5 @@
 .work-contents>summary{cursor:pointer;color:var(--rust);font-size:13px}
 .work-card .work-title-link{text-decoration:none}
 .work-card .work-title-link:hover{text-decoration:underline}
+
+.publication-schedule{margin:10px 0}.publication-schedule summary{cursor:pointer;color:var(--rust)}.publication-schedule input{max-width:280px;display:block}.publication-schedule .button{margin:6px 8px 0 0}

@@ -1,3 +1,4 @@
+import PublicationSchedule from './PublicationSchedule.jsx'
 import WorkTitle from './WorkTitle.jsx'
 import ReviewMark from './ReviewMark.jsx'
 import {authorLabel} from './workLabels.js'
@@ -14,7 +15,7 @@ const updatedFmt = date => date ? new Date(date).toLocaleString('ja-JP',{year:'n
 
 export default function MyWorkLibrary({
   works = [], revisions = [], requests = [], busy = false, userId = null,
-  onVisibility, onRead, onCreateChild, onEdit, onDelete, onRevise, onRequest, onCancelRequest, onReorderChildren,
+  onScheduleSaved, onVisibility, onRead, onCreateChild, onEdit, onDelete, onRevise, onRequest, onCancelRequest, onReorderChildren,
 }) {
   // Start everyone on saved manual order once; later explicit choices persist.
   const sortPrefKey=`yohaku:owner-child-sort:v7_7_1:${userId||'guest'}`
@@ -102,6 +103,7 @@ export default function MyWorkLibrary({
         {revision&&<p className="owner-notice"><FileClock size={14}/> 改訂案：{statusText[revision.status]||revision.status}{revision.review_note&&` — ${revision.review_note}`}</p>}
         {activeRequest&&<p className="owner-notice"><Clock size={14}/> {actionText[activeRequest.action]}申請：審査待ち <button className="text-action" disabled={busy} onClick={()=>onCancelRequest(activeRequest)}>取り消す</button></p>}
         {!activeRequest&&rejectedRequest&&<p className="owner-notice">{actionText[rejectedRequest.action]}申請は却下されました。{rejectedRequest.review_note}</p>}
+        {['open','published','pending'].includes(w.status)&&<PublicationSchedule key={w.id+':'+(w.scheduled_publish_at||'')} work={w} disabled={busy} onSaved={onScheduleSaved}/>}
         <div className="owner-work-actions">
           <button className="text-action" onClick={() => onRead(visible?w:{...w,owner_private:true})}>読む・履歴</button>
           <button className="text-action" onClick={() => onCreateChild(w,'collection')}><FolderTree size={14}/> 下位グループ</button>
