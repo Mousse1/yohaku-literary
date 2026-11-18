@@ -866,7 +866,7 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
   {!revisionMode&&<div className="editor-section">
     <label><input type="checkbox" style={{width:'auto'}} checked={reservePublication} onChange={e=>setReservePublication(e.target.checked)}/> 公開日時を予約する</label>
     {reservePublication&&<><label>公開日時（日本時間）<input type="datetime-local" required value={scheduleDate} onChange={e=>setScheduleDate(e.target.value)}/></label>
-    <p className="hint">1年後の日時も指定できます。予約原稿は公開時刻まで非公開です。審査付き公開は承認後、親グループが公開されてから公開されます。</p></>}
+    <p className="hint">1年後の日時も指定できます。下位の作品も同じ日時に予約し、公開まで非公開になります。審査付き公開は承認後、親グループが公開されてから公開されます。下書き・差し戻し・管理者による非公開作品は対象外です。</p></>}
     {initial?.scheduled_publish_at&&!reservePublication&&<p className="hint">登録済みの予約を取り消す場合は「自分の作品」の予約設定を開いてください。</p>}
   </div>}
   {!revisionMode&&<div className="editor-section publish-choice"><div className="section-small">04 / 公開方法</div><div className="publish-choice-options"><label className={publicationMode==='open'?'publish-option active':'publish-option'}><input type="radio" name="publication-mode" checked={publicationMode==='open'} onChange={()=>setPublicationMode('open')}/><span><strong>自由公開（審査なし）</strong><small>新規性・厳密さの説明なしで、すぐ公開。作者が直接編集できます。</small></span></label><label className={publicationMode==='pending'?'publish-option active':'publish-option'}><input type="radio" name="publication-mode" disabled={isEverFree} checked={publicationMode==='pending'} onChange={()=>setPublicationMode('pending')}/><span><strong>審査付き公開</strong><small>管理者の確認後に公開。改訂時も再審査を行います。</small></span></label></div>{isEverFree&&<p className="hint">この作品は自由公開として登録済みのため、審査付き公開には切り替えできません。審査を希望する場合は別の新規作品として投稿してください。</p>}</div>}

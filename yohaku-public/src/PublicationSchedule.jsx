@@ -18,7 +18,7 @@ export default function PublicationSchedule({work,onSaved,disabled=false}) {
   return <details className="publication-schedule">
     <summary>{work.scheduled_publish_at?'予約 '+jstDateInput(work.scheduled_publish_at).replace('T',' ')+'（日本時間）':'公開日時を予約'}</summary>
     <label>公開日時（日本時間）<input type="datetime-local" value={date} onChange={e=>setDate(e.target.value)} disabled={busy||disabled}/></label>
-    <p className="hint">1年後などの日時も指定できます。予約すると公開まで非公開になります。審査付き作品は承認後、親グループが公開されてから公開されます。</p>
+    <p className="hint">1年後などの日時も指定できます。下位の作品も同じ日時に予約し、公開まで非公開になります。下位に別の予約がある場合も、この日時に揃えます。審査付き作品は承認後、親グループが公開されてから公開されます。下書き・差し戻し・管理者による非公開作品は対象外です。</p>
     <button type="button" className="button small" disabled={busy||disabled||!date} onClick={()=>save()}>予約を保存</button>
     {work.scheduled_publish_at&&<button type="button" className="button small" disabled={busy||disabled} onClick={()=>save(true)}>予約を取り消して非公開にする</button>}
     {error&&<p role="alert">{error}</p>}
