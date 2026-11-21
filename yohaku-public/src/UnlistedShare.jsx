@@ -30,7 +30,7 @@ export default function UnlistedShare({work,onSaved,disabled}) {
       <a href={url} target="_blank" rel="noopener noreferrer">限定公開ページを開く</a>{' ／ '}
       <a href={url+'/print'} target="_blank" rel="noopener noreferrer">PDF印刷</a>{' ／ '}
       <a href={url+'.md'}>Markdownを保存</a>{' ／ '}<a href={url+'.txt'}>テキストを保存</a>
-      <p className="hint">このURLを知っている人が閲覧・保存できます。配下の公開可能な作品を含みます。個別に非公開・限定公開・予約中の作品は含みません。</p>
+      <p className="hint">このURLを知っている人が閲覧・保存できます。配下の一般公開・限定公開のファイルや本文も閲覧・保存できます。個別に非公開・予約中の作品は含みません。</p>
     </details>}
     {error&&<p role="alert">{error}</p>}
   </div>
