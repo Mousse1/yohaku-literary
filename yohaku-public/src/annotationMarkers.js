@@ -7,7 +7,7 @@ const markerExpression = /\uE000([SD])([1-9][0-9]{0,5})\uE001/g
 
 // Split into prose and note markers. Respect Markdown fenced/indented code,
 // inline backticks, math delimiters, escaped asterisks and ordinary **bold**.
-export function annotationSegments(source) {
+export function annotationSegments(source, {onAmbiguousBold} = {}) {
   const input = String(source ?? '')
   const pieces = []
   let text = ''
@@ -79,10 +79,21 @@ export function annotationSegments(source) {
         else if (mathDollars===run)mathDollars=0
         text+=line.slice(i,i+run);i+=run;continue
       }
+      // A leading half/full-width space explicitly selects numeric bold.
+      // Emit ordinary Markdown bold after the note scanner has skipped this range.
+      if (!codeTicks && !mathDollars && ch==='*' && line[i-1]!=='*') {
+        const numericBold=/^\*\*[ 　]+([0-9０-９][^*\r\n]*?)\*\*/u.exec(line.slice(i))
+        if (numericBold) {
+          text+='**'+numericBold[1].replace(/[ 　]+$/u,'')+'**'
+          i+=numericBold[0].length
+          continue
+        }
+      }
       if (!codeTicks && !mathDollars && ch==='*' && !inStrong(i) && line[i-1]!=='*' && !/[0-9]/.test(line[i-1]||'')) {
         // Explicit *1 or **1, plus the ** placeholder inserted by the editor.
         const numbered=/^(\*\*|\*)([1-9][0-9]{0,5})(?![0-9*])/.exec(line.slice(i))
         if(numbered){
+          if (numbered[1]==='**' && /^\*\*[1-9][0-9]{0,5}(?![0-9*])[^*\r\n]*\*\*/.test(line.slice(i))) onAmbiguousBold?.()
           const number=numbered[2]
           sequence=Math.max(sequence,Number(number))
           flush();pieces.push({type:'marker',number,stars:numbered[1]});i+=numbered[0].length;continue
@@ -151,4 +162,10 @@ export function renderAnnotatedPlainText(source, escapeHtml) {
     ? `${part.stars==='**'?'**':'*'}<sup class="annotation-marker" aria-label="注釈 ${part.number}" style="font-size:.68em;vertical-align:super;line-height:0">${part.number}</sup>`
     : escapeHtml(part.value)
   ).join('')
+}
+
+export function hasAmbiguousNumericBold(source) {
+  let ambiguous=false
+  annotationSegments(source,{onAmbiguousBold:()=>{ambiguous=true}})
+  return ambiguous
 }
