@@ -433,3 +433,5 @@
 .work-card .work-title-link:hover{text-decoration:underline}
 
 .publication-schedule{margin:10px 0}.publication-schedule summary{cursor:pointer;color:var(--rust)}.publication-schedule input{max-width:280px;display:block}.publication-schedule .button{margin:6px 8px 0 0}
+
+.unlisted-share{margin:10px 0}.unlisted-share summary{cursor:pointer;color:var(--rust)}.unlisted-share input{margin:10px 0}.unlisted-share a{font-size:12px}

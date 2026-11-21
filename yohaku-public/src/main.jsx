@@ -396,7 +396,7 @@ function App(){
   return <>
     <header className="header"><div className="container header-inner">
       <button className="brand" onClick={()=>route==='submit'||route==='revise'?editorExit.current?.():navigate('explore')} aria-label={route==='submit'||route==='revise'?'執筆を終える':'余白。 トップページ'}><span className="brand-mark">余白。</span><span className="brand-sub">文学の新しさを、読み比べる。</span></button>
-      {(route==='submit'||route==='revise') ? <div className="editor-header-controls"><span className="editor-header-label">執筆中 · 自動保存</span>{route==='submit'&&editing&&<button type="submit" form="yohaku-editor-form" className="button primary small editor-header-publish" disabled={loading}><PenLine size={14}/>{loading?'公開処理中…':editorPublicationMode==='scheduled'?'予約を保存':editorPublicationMode==='pending'?'審査へ提出':'審査なしで公開'}</button>}<button type="button" className="button light small" onClick={()=>editorExit.current?.()}>執筆を終える</button></div> : <><nav className={'nav '+(mobileMenu?'show':'')} aria-label="メインナビゲーション">{navItems.map(([key,label])=><button key={key} className={'nav-link '+(route===key?'active':'')} onClick={()=>navigate(key)}>{label}</button>)}
+      {(route==='submit'||route==='revise') ? <div className="editor-header-controls"><span className="editor-header-label">執筆中 · 自動保存</span>{route==='submit'&&editing&&<button type="submit" form="yohaku-editor-form" className="button primary small editor-header-publish" disabled={loading}><PenLine size={14}/>{loading?'公開処理中…':editorPublicationMode==='scheduled'?'予約を保存':editorPublicationMode==='unlisted'?'限定公開で保存':editorPublicationMode==='pending'?'審査へ提出':'審査なしで公開'}</button>}<button type="button" className="button light small" onClick={()=>editorExit.current?.()}>執筆を終える</button></div> : <><nav className={'nav '+(mobileMenu?'show':'')} aria-label="メインナビゲーション">{navItems.map(([key,label])=><button key={key} className={'nav-link '+(route===key?'active':'')} onClick={()=>navigate(key)}>{label}</button>)}
       {user&&<button className={'nav-link '+(route==='mine'?'active':'')} onClick={()=>navigate('mine')}>自分の作品</button>}
       {isMod&&<button className={'nav-link '+(route==='admin'?'active':'')} onClick={()=>navigate('admin')}>管理・審査</button>}
       <button className="button primary nav-post" disabled={loading} onClick={()=>beginCreation('work')}><PenLine size={15}/> 作品を投稿</button>
@@ -443,14 +443,14 @@ function App(){
         if(error)throw error
         await loadMine()
       }} onSubmit={async payload=>{
-        const {scheduledPublishAt,...workPayload}=payload
+        const {scheduledPublishAt,unlisted,...workPayload}=payload
         setLoading(true)
         const {error}=scheduledPublishAt
           ? await supabase.rpc('save_scheduled_work',{p_payload:workPayload,p_publish_at:scheduledPublishAt})
-          : await supabase.rpc('save_work_v6',workPayload)
+          : unlisted ? await supabase.rpc('save_unlisted_work',{p_payload:workPayload}) : await supabase.rpc('save_work_v6',workPayload)
         setLoading(false)
         if(error){flash(messageFor(error));return false}
-        setEditing(null);setCreationParent(null);await loadMine();await loadPublished();await loadTree();flash(scheduledPublishAt?'公開予約を保存しました。':payload.p_status==='draft'?'下書きを保存しました。':payload.p_status==='open'?'自由公開として掲載しました。':'審査待ちとして投稿しました。承認後に一般公開されます。');navigate('mine');return true
+        setEditing(null);setCreationParent(null);await loadMine();await loadPublished();await loadTree();flash(unlisted?'限定公開で保存しました。「自分の作品」から専用URLを共有できます。':scheduledPublishAt?'公開予約を保存しました。':payload.p_status==='draft'?'下書きを保存しました。':payload.p_status==='open'?'自由公開として掲載しました。':'審査待ちとして投稿しました。承認後に一般公開されます。');navigate('mine');return true
       }} disabled={loading} onCancel={()=>{setEditing(null);setCreationParent(null);navigate('mine')}}/>}
     </main>}
     {route==='revise'&&<main className="container page"><div className="eyebrow">REVISE / SUBMIT</div><h1 className="serif page-title">改訂版を提出する。</h1><p className="page-lead">旧版はそのまま一般公開されます。改訂案が承認されたときのみ、表示中の本文・参考文献が新版に切り替わります。旧版は読者が参照できる履歴として残ります。</p>
@@ -619,7 +619,7 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
   const isEverFree = Boolean(initial?.status==='open'||initial?.freely_published_once)
   const [scheduleDate,setScheduleDate]=useState(()=>jstDateInput(initial?.scheduled_publish_at))
   const [reservePublication,setReservePublication]=useState(Boolean(initial?.scheduled_publish_at))
-  const [publicationMode,setPublicationMode]=useState(initial?.status==='pending'||initial?.status==='rejected'?'pending':'open')
+  const [publicationMode,setPublicationMode]=useState(initial?.owner_unlisted?'unlisted':initial?.status==='pending'||initial?.status==='rejected'?'pending':'open')
   useEffect(()=>{onPublicationModeChange?.(reservePublication?'scheduled':publicationMode)},[publicationMode,reservePublication,onPublicationModeChange])
   const editorRef=useRef(null)
   const markdownFileRef=useRef(null)
@@ -815,8 +815,9 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
     submitting.current=true;clearTimeout(timer.current)
     try {
       await pendingSave.current.catch(()=>{})
-      const payload=payloadFor(status)
-      if(!revisionMode&&reservePublication) payload.scheduledPublishAt=scheduledInstant(scheduleDate)
+      const payload=payloadFor(status==='unlisted'?'open':status)
+      if(!revisionMode&&status==='unlisted')payload.unlisted=true
+      if(!revisionMode&&reservePublication&&status!=='unlisted') payload.scheduledPublishAt=scheduledInstant(scheduleDate)
       const ok=await onSubmit(payload)
       if(ok){try{localStorage.removeItem(cacheKey);localStorage.removeItem(safetyKey)}catch{}}
       else submitting.current=false
@@ -864,13 +865,13 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
   <div className="editor-section"><div className="section-small">03 / 参考文献・関連作品</div><p className="muted">パンフレット・書籍・配布資料など、URLのない文献も登録できます。URLは任意（空欄可）です。各作品につき20件まで。対応番号を入れると本文の注釈印を押して「並べて読む」で開けます。</p>{refs.map((r,i)=><div className="ref-edit" key={i}><div className="ref-edit-head"><strong>文献 {i+1}{r.annotationNumber?` ／ 注釈 *${r.annotationNumber}`:''}</strong><button className="text-action dangerous" type="button" onClick={()=>setRefs(a=>a.filter((_,j)=>j!==i))}><Trash2 size={13}/> 削除</button></div><div className="two-col"><Field label="書名・資料名・著者など *"><input required maxLength={290} value={r.title} onChange={e=>setRef(i,'title',e.target.value)}/></Field><Field label="関連の理由"><input maxLength={200} value={r.relation} onChange={e=>setRef(i,'relation',e.target.value)}/></Field></div><Field label="対応する注釈番号（任意・例：1）"><input type="number" min="1" max="999999" step="1" value={r.annotationNumber||''} onChange={e=>setRef(i,'annotationNumber',e.target.value)} placeholder="本文の **（1番目）と対応"/></Field><Field label="参考URL（任意・空欄で登録できます）"><input type="url" maxLength={1000} value={r.url} onChange={e=>setRef(i,'url',e.target.value)}/></Field></div>)}<button type="button" disabled={refs.length>=20} className="button light small" onClick={()=>setRefs(x=>[...x,{title:'',relation:'',url:''}])}><Plus size={15}/>文献を追加</button></div>
   {revisionMode&&<div className="editor-section"><div className="section-small">04 / 改訂の説明</div><label><input type="checkbox" style={{width:'auto'}} checked={fields.keep_previous_body!==false} onChange={e=>update('keep_previous_body',e.target.checked)}/> 更新前の本文を改訂履歴に残す</label><p className="hint">チェックを外すと、新版の承認時に直前の版の本文を履歴から削除します。</p><Field label="今回変更した内容（任意）"><textarea rows={3} maxLength={1000} value={changeNote} onChange={e=>setChangeNote(e.target.value)}/></Field><p className="hint">承認後、この説明は改訂履歴に掲載されます。公開中の旧版は審査完了まで変更されません。</p></div>}
   {!revisionMode&&<div className="editor-section">
-    <label><input type="checkbox" style={{width:'auto'}} checked={reservePublication} onChange={e=>setReservePublication(e.target.checked)}/> 公開日時を予約する</label>
+    <label><input type="checkbox" style={{width:'auto'}} checked={reservePublication} disabled={publicationMode==='unlisted'} onChange={e=>setReservePublication(e.target.checked)}/> 公開日時を予約する</label>
     {reservePublication&&<><label>公開日時（日本時間）<input type="datetime-local" required value={scheduleDate} onChange={e=>setScheduleDate(e.target.value)}/></label>
     <p className="hint">1年後の日時も指定できます。下位の作品も同じ日時に予約し、公開まで非公開になります。審査付き公開は承認後、親グループが公開されてから公開されます。下書き・差し戻し・管理者による非公開作品は対象外です。</p></>}
     {initial?.scheduled_publish_at&&!reservePublication&&<p className="hint">登録済みの予約を取り消す場合は「自分の作品」の予約設定を開いてください。</p>}
   </div>}
-  {!revisionMode&&<div className="editor-section publish-choice"><div className="section-small">04 / 公開方法</div><div className="publish-choice-options"><label className={publicationMode==='open'?'publish-option active':'publish-option'}><input type="radio" name="publication-mode" checked={publicationMode==='open'} onChange={()=>setPublicationMode('open')}/><span><strong>自由公開（審査なし）</strong><small>新規性・厳密さの説明なしで、すぐ公開。作者が直接編集できます。</small></span></label><label className={publicationMode==='pending'?'publish-option active':'publish-option'}><input type="radio" name="publication-mode" disabled={isEverFree} checked={publicationMode==='pending'} onChange={()=>setPublicationMode('pending')}/><span><strong>審査付き公開</strong><small>管理者の確認後に公開。改訂時も再審査を行います。</small></span></label></div>{isEverFree&&<p className="hint">この作品は自由公開として登録済みのため、審査付き公開には切り替えできません。審査を希望する場合は別の新規作品として投稿してください。</p>}</div>}
-  <div className="editor-actions"><p className="hint">{!revisionMode&&<>{dailyLimitText}<br/></>}{revisionMode?'改訂案は承認まで非公開です。差し戻された場合は再編集できます。':'自由公開は運営による事前審査・品質保証ではありません。著作権・個人情報・利用規約を守ってください。'}</p><div><button className="button light" type="button" onClick={leaveEditor}>執筆を終える</button><span className={'auto-save-status '+saveState} role="status" aria-live="polite">{saveState==='saved'?'クラウドに自動保存済み':saveState==='saving'?'クラウドへ保存中…':saveState==='error'?'自動保存に失敗しました':saveState==='local'?'この端末に一時保存中（公開は未反映）':'入力内容を一時保存中…'}{saveError&&<span className="auto-save-error">{saveError}</span>}</span><button className="button primary" disabled={disabled} type="submit"><PenLine size={15}/>{disabled?'保存中…':!revisionMode&&reservePublication?'予約を保存':revisionMode||publicationMode==='pending'?'審査へ提出':'審査なしで公開'}</button></div></div></form>
+  {!revisionMode&&<div className="editor-section publish-choice"><div className="section-small">04 / 公開方法</div><div className="publish-choice-options"><label className={publicationMode==='open'?'publish-option active':'publish-option'}><input type="radio" name="publication-mode" checked={publicationMode==='open'} onChange={()=>setPublicationMode('open')}/><span><strong>自由公開（審査なし）</strong><small>新規性・厳密さの説明なしで、すぐ公開。作者が直接編集できます。</small></span></label><label className={publicationMode==='unlisted'?'publish-option active':'publish-option'}><input type="radio" name="publication-mode" checked={publicationMode==='unlisted'} onChange={()=>{setPublicationMode('unlisted');setReservePublication(false)}}/><span><strong>限定公開</strong><small>専用URLを知っている人が閲覧・PDF印刷・ファイル保存できます。</small></span></label><label className={publicationMode==='pending'?'publish-option active':'publish-option'}><input type="radio" name="publication-mode" disabled={isEverFree} checked={publicationMode==='pending'} onChange={()=>setPublicationMode('pending')}/><span><strong>審査付き公開</strong><small>管理者の確認後に公開。改訂時も再審査を行います。</small></span></label></div>{isEverFree&&<p className="hint">この作品は自由公開として登録済みのため、審査付き公開には切り替えできません。審査を希望する場合は別の新規作品として投稿してください。</p>}</div>}
+  <div className="editor-actions"><p className="hint">{!revisionMode&&<>{dailyLimitText}<br/></>}{revisionMode?'改訂案は承認まで非公開です。差し戻された場合は再編集できます。':'自由公開は運営による事前審査・品質保証ではありません。著作権・個人情報・利用規約を守ってください。'}</p><div><button className="button light" type="button" onClick={leaveEditor}>執筆を終える</button><span className={'auto-save-status '+saveState} role="status" aria-live="polite">{saveState==='saved'?'クラウドに自動保存済み':saveState==='saving'?'クラウドへ保存中…':saveState==='error'?'自動保存に失敗しました':saveState==='local'?'この端末に一時保存中（公開は未反映）':'入力内容を一時保存中…'}{saveError&&<span className="auto-save-error">{saveError}</span>}</span><button className="button primary" disabled={disabled} type="submit"><PenLine size={15}/>{disabled?'保存中…':!revisionMode&&publicationMode==='unlisted'?'限定公開で保存':!revisionMode&&reservePublication?'予約を保存':revisionMode||publicationMode==='pending'?'審査へ提出':'審査なしで公開'}</button></div></div></form>
 }
 function Field({label,children}){return <label className="field"><span>{label}</span>{children}</label>}
 

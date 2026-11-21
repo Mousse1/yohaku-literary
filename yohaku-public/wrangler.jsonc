@@ -13,7 +13,8 @@
       "/export/*",
       "/robots.txt",
       "/sitemap.xml",
-      "/sitemaps/*"
+      "/sitemaps/*",
+      "/share/*"
     ]
   },
   "define": {

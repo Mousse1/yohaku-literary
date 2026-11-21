@@ -1,3 +1,4 @@
+import UnlistedShare from './UnlistedShare.jsx'
 import PublicationSchedule from './PublicationSchedule.jsx'
 import WorkTitle from './WorkTitle.jsx'
 import ReviewMark from './ReviewMark.jsx'
@@ -83,7 +84,7 @@ export default function MyWorkLibrary({
             : <span className="owner-toggle-spacer" aria-hidden="true"/>}
           {isGroup ? <FolderTree size={18} className="owner-work-type-icon" aria-hidden="true"/> : <FileText size={17} className="owner-work-type-icon" aria-hidden="true"/>}
           <button className="owner-work-title" onClick={() => onRead(visible?w:{...w,owner_private:true})} title={node.path}><WorkTitle>{w.title?.trim()||'無題の下書き'}</WorkTitle></button>
-          <ReviewMark work={w}/>{publicStatus(w.status)&&!visible&&<span className="status">{node.privateParent?'上位が非公開':'非公開'}</span>}{(!publicStatus(w.status)||(isGroup&&visible))&&<span className="status">{publicStatus(w.status)?'公開':statusText[w.status] || w.status}</span>}
+          <ReviewMark work={w}/>{publicStatus(w.status)&&!visible&&<span className="status">{w.owner_unlisted?'限定公開':node.privateParent?'上位が非公開':'非公開'}</span>}{(!publicStatus(w.status)||(isGroup&&visible))&&<span className="status">{publicStatus(w.status)?'公開':statusText[w.status] || w.status}</span>}
           {isGroup&&<span className="owner-mini-tag">グループ</span>}
           {hasChildren&&<span className="owner-child-count">下位 {node.descendantCount} 件</span>}
           {!node.depth&&<span className="owner-mini-tag">最上位</span>}
@@ -104,11 +105,13 @@ export default function MyWorkLibrary({
         {activeRequest&&<p className="owner-notice"><Clock size={14}/> {actionText[activeRequest.action]}申請：審査待ち <button className="text-action" disabled={busy} onClick={()=>onCancelRequest(activeRequest)}>取り消す</button></p>}
         {!activeRequest&&rejectedRequest&&<p className="owner-notice">{actionText[rejectedRequest.action]}申請は却下されました。{rejectedRequest.review_note}</p>}
         {['open','published','pending'].includes(w.status)&&<PublicationSchedule key={w.id+':'+(w.scheduled_publish_at||'')} work={w} disabled={busy} onSaved={onScheduleSaved}/>}
+        {publicStatus(w.status)&&<UnlistedShare work={w} disabled={busy} onSaved={onScheduleSaved}/>}
         <div className="owner-work-actions">
           <button className="text-action" onClick={() => onRead(visible?w:{...w,owner_private:true})}>読む・履歴</button>
           <button className="text-action" onClick={() => onCreateChild(w,'collection')}><FolderTree size={14}/> 下位グループ</button>
           <button className="text-action" onClick={() => onCreateChild(w,'work')}><Plus size={14}/> 本文を追加</button>
-          {publicStatus(w.status)&&<button className="text-action" disabled={busy || (node.privateParent && w.owner_private)} onClick={()=>onVisibility(w,Boolean(w.owner_private))}>{w.owner_private?'公開に戻す':'非公開にする'}</button>}
+          {publicStatus(w.status)&&<button className="text-action" disabled={busy || (node.privateParent && w.owner_private)} onClick={()=>onVisibility(w,Boolean(w.owner_private))}>{w.owner_private?'一般公開にする':'非公開にする'}</button>}
+          {w.owner_unlisted&&<button className="text-action" disabled={busy} onClick={()=>onVisibility(w,false)}>非公開にする</button>}
           {visible&&<a className="text-action" href={`${window.location.origin}/works/${encodeURIComponent(w.id)}`}><LinkIcon size={13}/> 公開URL</a>}{visible&&<WorkExportLinks workId={w.id} compact/>}
           {['draft','pending','rejected','open'].includes(w.status)&&<>
             <button className="text-action" onClick={()=>onEdit(w)}>編集</button>
