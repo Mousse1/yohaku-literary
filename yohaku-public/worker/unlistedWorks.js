@@ -7,7 +7,7 @@ const headers={
   'x-robots-tag':'noindex, nofollow, noarchive',
   'referrer-policy':'no-referrer',
   'x-content-type-options':'nosniff',
-  'content-security-policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'content-security-policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
 }
 export async function serveUnlisted(request,env) {
   const url=new URL(request.url)
