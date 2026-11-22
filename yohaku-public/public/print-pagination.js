@@ -22,7 +22,7 @@
   const updatePosition = () => { document.documentElement.dataset.pageNumberPosition = position.value; };
   position.addEventListener('change', updatePosition);
   updatePosition();
-  const settings = ['print-break-mode','print-font-size','print-density'].map(id=>document.getElementById(id));
+  const settings = ['print-break-mode','print-font-size','print-density','print-reference-position'].map(id=>document.getElementById(id));
   let previewer=null, running=false, requested=false;
   // Keep a detached original: each new layout starts from the complete manuscript.
   source.remove();
@@ -45,6 +45,42 @@
         @bottom-right{content:counter(page);font-family:system-ui,sans-serif;font-size:9pt;color:#65645e}
       }`;
   }
+  function placeReferences(content) {
+    const position=settings[3].value;
+    if(position==='item')return;
+    const records=[...content.querySelectorAll('.export-record')];
+    const groups=new Map();
+    for(const record of records){
+      const references=record.querySelector(':scope > .export-references');
+      if(!references)continue;
+      const key=position==='end'?'end':record.dataset.printFile;
+      if(!groups.has(key))groups.set(key,[]);
+      groups.get(key).push(references);
+      references.remove();
+      // Once its bibliography is relocated, an empty folder should stay with its text.
+      if(!record.querySelector('.body-section,.meta-section'))record.classList.add('is-heading-only');
+    }
+    for(const [key,references] of groups){
+      const section=document.createElement('section');
+      section.className='reference-collection';
+      const title=document.createElement('h2');title.textContent='参考文献・関連作品';section.append(title);
+      for(const reference of references){
+        reference.querySelector('h3').textContent=reference.dataset.referenceTitle;
+        section.append(reference);
+      }
+      if(position==='end'){
+        section.id='yohaku-collected-references';content.append(section);
+        const li=document.createElement('li');const link=document.createElement('a');
+        link.href='#'+section.id;link.textContent='参考文献・関連作品';li.append(link);
+        content.querySelector('.toc-items').append(li);
+      }else{
+        const last=records.filter(record=>record.dataset.printFile===key).at(-1);
+        // Keep the bibliography inside its last record, before the next file begins.
+        last.append(section);
+        last.classList.remove('is-heading-only');
+      }
+    }
+  }
   async function paginate() {
     requested=true;
     if(running)return;
@@ -62,6 +98,7 @@
         output.replaceChildren();
         const content=source.cloneNode(true);
         content.removeAttribute('id');
+        placeReferences(content);
         const mode=settings[0].value;
         const records=[...content.querySelectorAll('.export-record')];
         records.forEach((record,index)=>record.classList.toggle('print-page-start',index>0 &&
