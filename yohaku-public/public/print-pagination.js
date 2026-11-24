@@ -22,7 +22,7 @@
   const updatePosition = () => { document.documentElement.dataset.pageNumberPosition = position.value; };
   position.addEventListener('change', updatePosition);
   updatePosition();
-  const settings = ['print-break-mode','print-font-size','print-density','print-reference-position'].map(id=>document.getElementById(id));
+  const settings = ['print-break-mode','print-font-size','print-density','print-reference-position','print-toc-numbers'].map(id=>document.getElementById(id));
   let previewer=null, running=false, requested=false;
   // Keep a detached original: each new layout starts from the complete manuscript.
   source.remove();
@@ -30,16 +30,17 @@
     const [modeControl,sizeControl,densityControl]=settings;
     const mode=modeControl.value;
     const size=[9,10,11,12,14,16].includes(Number(sizeControl.value))?Number(sizeControl.value):12;
-    const density={compact:[1.3,3,'-.02em'],standard:[1.6,9,'normal'],relaxed:[1.9,14,'.02em']}[densityControl.value]||[1.6,9,'normal'];
+    const density={compact:[1.25,.15,'-.02em'],standard:[1.45,.35,'.012em'],relaxed:[1.9,.8,'.02em']}[densityControl.value]||[1.45,.35,'.012em'];
     return document.getElementById('export-style').textContent.replaceAll('break-before:page','break-before:auto') + `
       .sheet{max-width:none;margin:0;padding:0;box-shadow:none;background:white;font-size:${size}pt}
       .export-record.print-page-start{break-before:page}
       .export-record.is-root,.export-record.is-heading-only+.export-record{break-before:auto}
       .export-record .print-markdown{font-size:${size}pt;line-height:${density[0]};letter-spacing:${density[2]}}
-      .export-record .print-markdown p{margin:${density[1]}pt 0;line-height:inherit}
-      .export-record .print-markdown li{margin:${density[1]/2}pt 0}
+      .export-record .print-markdown p{margin:0 0 ${density[1]}em;line-height:inherit}
+      .export-record .print-markdown li{margin:${density[1]/2}em 0}
       .export-record .print-markdown h1{font-size:1.5em}.export-record .print-markdown h2{font-size:1.33em}.export-record .print-markdown h3{font-size:1.17em}
       .export-record .print-markdown h4,.export-record .print-markdown h5,.export-record .print-markdown h6{font-size:1em}
+      ${[3,4,5,6,7,8].map(n=>'.export-record .print-markdown p.body-paragraph-gap-'+n+'{margin-bottom:'+n/2+'em}').join('')}
       @page{size:A4;margin:19mm 18mm;
         @bottom-center{content:counter(page);font-family:system-ui,sans-serif;font-size:9pt;color:#65645e}
         @bottom-right{content:counter(page);font-family:system-ui,sans-serif;font-size:9pt;color:#65645e}
@@ -71,7 +72,7 @@
       if(position==='end'){
         section.id='yohaku-collected-references';content.append(section);
         const li=document.createElement('li');const link=document.createElement('a');
-        link.href='#'+section.id;link.textContent='参考文献・関連作品';li.append(link);
+        link.className='toc-page-number';link.href='#'+section.id;link.textContent='参考文献・関連作品';li.append(link);
         content.querySelector('.toc-items').append(li);
       }else{
         const last=records.filter(record=>record.dataset.printFile===key).at(-1);
@@ -99,6 +100,9 @@
         const content=source.cloneNode(true);
         content.removeAttribute('id');
         placeReferences(content);
+        if(settings[4].value==='body'){
+          content.querySelectorAll('.toc-items li[data-toc-kind="file"] a').forEach(link=>link.classList.remove('toc-page-number'));
+        }
         const mode=settings[0].value;
         const records=[...content.querySelectorAll('.export-record')];
         records.forEach((record,index)=>record.classList.toggle('print-page-start',index>0 &&

@@ -51,8 +51,8 @@ export function renderPrintMarkdown(source,{work={},origin='',included=new Set()
 }
 
 export const printMarkdownCss=`
-.print-markdown{line-height:1.6;overflow-wrap:anywhere}
-.print-markdown p{white-space:pre-wrap;margin:9pt 0;orphans:3;widows:3}
+.print-markdown{line-height:1.45;overflow-wrap:anywhere}
+.print-markdown p{white-space:normal;margin:0 0 .35em;orphans:3;widows:3}
 .export-record .print-markdown h1{font-size:18pt}.export-record .print-markdown h2{font-size:16pt}.export-record .print-markdown h3{font-size:14pt}
 .export-record .print-markdown h4,.export-record .print-markdown h5,.export-record .print-markdown h6{font-size:12pt}
 .print-markdown h1,.print-markdown h2,.print-markdown h3,.print-markdown h4,.print-markdown h5,.print-markdown h6{margin:16pt 0 7pt;line-height:1.45;break-after:avoid-page}
