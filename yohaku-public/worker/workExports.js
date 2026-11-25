@@ -35,7 +35,7 @@ function textLines(record, origin, isRoot=false) {
 
 export function renderExportText(doc, origin, markdown=false) {
   if(markdown)return renderExportMarkdown(doc,origin)
-  const title=`${doc.root.title || '無題'} — 余白。`
+  const title=`${doc.root.title || '無題'} — 余白 — 創作と研究のノート`
   const sections=doc.records.map((record,index)=>{
     const raw=textLines(record,origin,index===0)
     if(!markdown) return raw.replace(/^#{1,2} /,'')
@@ -80,7 +80,7 @@ function htmlRecord(record, origin, main=false, index=0, included=new Set(), fil
   return `<article data-print-file="${escapeHtml(fileKey)}" id="${recordAnchor(index)}" class="export-record${fileStart?' file-start':''}${main?' is-root':''}${headingOnly?' is-heading-only':''}"><header class="export-record-header"><span id="work-${escapeHtml(w.id)}"></span>${hideRootTitle?'':`<${heading}>${titleHtml(w.title||'無題',escapeHtml)}</${heading}>`}${w.contributor_credit?'<p class="credits">入力・構成：'+escapeHtml(w.contributor_credit)+'</p>':''}</header>${hasBody?`<section class="body-section">${renderPrintMarkdown(w.body,{work:w,origin,included})}</section>`:''}${info}${refs}</article>`
 }
 export function renderExportHtml(doc, origin) {
-  const title=`${plainTitle(doc.root.title)||'無題'}｜余白。`
+  const title=`${plainTitle(doc.root.title)||'無題'}｜余白 — 創作と研究のノート`
   const fileStarts=printFileStarts(doc.records)
   const fileKeys=printFileKeys(doc.records)
   const toc=`<nav class="export-toc" aria-label="目次"><h1>${titleHtml(doc.root.title||'無題',escapeHtml)}</h1><p class="credits">${exportAuthorLabel(doc)}：${escapeHtml(exportAuthors(doc))}</p><h2>目次</h2><ol class="toc-items">${doc.records.map((r,i)=>i===0&&r.work.node_kind==='collection'?'':`<li data-toc-kind="${r.work.node_kind==='collection'?'file':'body'}" style="margin-left:${Math.min(Math.max(Number(r.depth)||0,0),12)*14}px"><a class="toc-page-number" href="#${recordAnchor(i)}">${titleHtml(recordLabel(r),escapeHtml)}</a></li>`).join('')}</ol></nav>`

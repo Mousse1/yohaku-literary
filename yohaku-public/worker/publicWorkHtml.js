@@ -26,7 +26,7 @@ export function renderPublicWorkHtml(template, work, references, tree, embedded,
   // この関数は初期表示のHTMLだけを作り、クライアントの読書画面を置き換えない。
   const root=/<div\s+id=["']root["']\s*>\s*<\/div>/i
   if (!root.test(template) || !/<\/head\s*>/i.test(template)) return null
-  const title=`${plainTitle(work.title)||'作品'}｜余白。`
+  const title=`${plainTitle(work.title)||'作品'}｜余白 — 創作と研究のノート`
   const canonical=publicLink(origin,work.id)
   const description=String(work.summary||work.body||work.title||'').replace(/\s+/g,' ').slice(0,160)
   const normalizedRefs=references.map(publicReference)
@@ -43,6 +43,7 @@ export function renderPublicWorkHtml(template, work, references, tree, embedded,
     `<script type="application/ld+json">${ld}</script>`+`<link rel="alternate" type="application/json" title="作品全文JSON" href="${escapeHtml(origin)}/api/public/works/${escapeHtml(work.id)}">`+
     `<meta name="description" content="${escapeHtml(description)}">`+
     `<link rel="canonical" href="${escapeHtml(canonical)}">`+
+    `<meta property="og:site_name" content="余白 — 創作と研究のノート">`+
     `<meta property="og:type" content="article">`+
     `<meta property="og:title" content="${escapeHtml(title)}">`+
     `<meta property="og:description" content="${escapeHtml(description)}">`+
@@ -58,7 +59,7 @@ export function renderPublicWorkHtml(template, work, references, tree, embedded,
   const more=embedded.limited?'<p>収録作品の本文は先頭の一部を表示しています。残りは目次から各作品の全文を読めます。</p>':''
   const author=work.pen_name?`<p>${authorLabel(work)}：${escapeHtml(work.pen_name)}${work.contributor_credit?' ／ 入力・構成：'+escapeHtml(work.contributor_credit):''}</p>`:''
   const content=`<main class="initial-public-work" style="max-width:850px;margin:2rem auto;padding:1rem;font-family:serif;line-height:1.45;overflow-wrap:anywhere">
-    <header><p><a href="/">余白。</a></p><h1>${titleHtml(work.title,escapeHtml)}${mark(work)}</h1>${author}</header>
+    <header><p><a href="/">余白 — 創作と研究のノート</a></p><h1>${titleHtml(work.title,escapeHtml)}${mark(work)}</h1>${author}</header>
     ${work.summary?`<p>${escapeHtml(work.summary)}</p>`:''}
     ${work.body?`<details class="collapsible-body"${work.node_kind==='collection'?'':' open'}><summary>本文（クリックで開閉）</summary><article aria-label="作品本文">${(work.body.includes('yohaku-python-plot')||work.body.includes('~~')||/\*\*[ \u3000]+[0-9０-９]/u.test(work.body))?formattedBody(work):isScreenplay(work)?screenplayHtml(work.body,value=>renderNoteHtml(value,v=>annotatedInline(v,work.id),undefined,'',noteLinks(work.body))):textBlock(work.body,'initial-work-body',work.id)}</article></details>`:''}
     ${toc}${chapters?`<section aria-label="下位作品の本文">${chapters}${more}</section>`:more}
@@ -81,7 +82,7 @@ function noteBlock(notes=[]) {
   return notes.length?`<section aria-label="公開された読者の注釈"><h2>公開された読者の注釈・異論</h2>${notes.map(n=>`<article><h3>${escapeHtml(n.type)} — ${escapeHtml(n.pen_name)}</h3>${textBlock(n.body,'initial-reader-note')}</article>`).join('')}</section>`:''
 }
 function htmlError(message,status,method) {
-  return new Response(method==='HEAD'?null:`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>余白。</title></head><body><p>${escapeHtml(message)}</p><a href="/">作品一覧へ</a></body></html>`,{status,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff',...(status===405?{allow:'GET, HEAD'}:{})}})
+  return new Response(method==='HEAD'?null:`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>余白 — 創作と研究のノート</title></head><body><p>${escapeHtml(message)}</p><a href="/">作品一覧へ</a></body></html>`,{status,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff',...(status===405?{allow:'GET, HEAD'}:{})}})
 }
 export async function servePublicWorkHtml(request, env) {
   const url=new URL(request.url)

@@ -441,3 +441,6 @@
 .body-editor::selection{background:#f1d590;color:#262722}
 
 .python-editor{border:1px solid var(--line);padding:12px;margin:16px 0}.python-editor summary{cursor:pointer}.python-editor textarea{font-family:Consolas,monospace;font-size:13px}.python-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.python-result pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto}.python-result img,.python-output-image{display:block;max-width:100%;height:auto}.rich-body pre:has(.python-output-image){background:none;padding:0;border:0;white-space:normal}
+
+/* Keep the site subtitle visible on narrow screens. */
+@media(max-width:1050px){.brand{flex-direction:column;align-items:flex-start;gap:0}.brand-sub{display:block;font-size:10px;line-height:1.4;white-space:nowrap}}
