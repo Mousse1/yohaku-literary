@@ -60,27 +60,28 @@
     const records=[...content.querySelectorAll('.export-record')];
     const groups=new Map();
     for(const record of records){
-      const references=record.querySelector(':scope > .export-references');
-      if(!references)continue;
+      const references=[...record.querySelectorAll(':scope > .export-references, :scope > .attachment-print-links')];
+      if(!references.length)continue;
       const key=position==='end'?'end':record.dataset.printFile;
       if(!groups.has(key))groups.set(key,[]);
-      groups.get(key).push(references);
-      references.remove();
+      groups.get(key).push(...references);
+      references.forEach(reference=>reference.remove());
       // Once its bibliography is relocated, an empty folder should stay with its text.
-      if(!record.querySelector('.body-section,.meta-section'))record.classList.add('is-heading-only');
+      if(!record.querySelector('.body-section,.meta-section,.attachment-print-links'))record.classList.add('is-heading-only');
     }
     for(const [key,references] of groups){
       const section=document.createElement('section');
       section.className='reference-collection';
-      const title=document.createElement('h2');title.textContent='参考文献・関連作品';section.append(title);
+      const heading=references.some(reference=>reference.classList.contains('attachment-print-links'))?'参考文献・関連作品・添付資料':'参考文献・関連作品';
+      const title=document.createElement('h2');title.textContent=heading;section.append(title);
       for(const reference of references){
-        reference.querySelector('h3').textContent=reference.dataset.referenceTitle;
+        reference.querySelector('h3').textContent=reference.dataset.referenceTitle+(reference.classList.contains('attachment-print-links')?' — 添付資料':'');
         section.append(reference);
       }
       if(position==='end'){
         section.id='yohaku-collected-references';content.append(section);
         const li=document.createElement('li');const link=document.createElement('a');
-        link.className='toc-page-number';link.href='#'+section.id;link.textContent='参考文献・関連作品';li.append(link);
+        link.className='toc-page-number';link.href='#'+section.id;link.textContent=heading;li.append(link);
         content.querySelector('.toc-items').append(li);
       }else{
         const last=records.filter(record=>record.dataset.printFile===key).at(-1);
