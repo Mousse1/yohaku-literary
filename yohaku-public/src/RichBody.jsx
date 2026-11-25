@@ -1,3 +1,4 @@
+import {PythonCode} from './pythonPlot.js'
 import {noteLinks,remarkNoteLinks} from './noteLinks'
 import {screenplayDocument,remarkScreenplay} from './screenplay'
 import React, { useMemo } from 'react'
@@ -29,7 +30,7 @@ export default function RichBody({ source='', fontSize=16, className='', onAnnot
   }
   return <div className={'rich-body serif '+className} onClick={handleClick} style={{'--reading-size':`${fontSize}px`}}>
     {screenplay&&characters.length>0&&<aside className="screenplay-cast"><h3>登場人物</h3><p>{characters.join(' ／ ')}</p></aside>}
-    <Markdown remarkPlugins={plugins} rehypePlugins={rehypePlugins} skipHtml>
+    <Markdown components={{code:PythonCode}} remarkPlugins={plugins} rehypePlugins={rehypePlugins} skipHtml>
       {prepareAnnotationSource(preserveParagraphIndentation(text))}
     </Markdown>
   </div>

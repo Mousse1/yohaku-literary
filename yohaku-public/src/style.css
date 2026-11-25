@@ -439,3 +439,5 @@
 .editor-body-search{margin:12px 0;padding:12px;border:1px solid var(--line);background:var(--paper)}
 .editor-body-search label{font-size:12px}.editor-body-search input{margin-top:5px}.editor-search-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
 .body-editor::selection{background:#f1d590;color:#262722}
+
+.python-editor{border:1px solid var(--line);padding:12px;margin:16px 0}.python-editor summary{cursor:pointer}.python-editor textarea{font-family:Consolas,monospace;font-size:13px}.python-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.python-result pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto}.python-result img,.python-output-image{display:block;max-width:100%;height:auto}.rich-body pre:has(.python-output-image){background:none;padding:0;border:0;white-space:normal}

@@ -1,3 +1,4 @@
+import PythonEditor from './PythonEditor.jsx'
 import EditorBodySearch from './EditorBodySearch.jsx'
 import {hasAmbiguousNumericBold} from './annotationMarkers.js'
 import {jstDateInput,scheduledInstant} from './publicationSchedule.js'
@@ -863,6 +864,14 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
   }}/>}
   <NoteLinkEditor source={fields.body} parentId={fields.parent_work_id} works={parentOptions.map(o=>o.work)} onChange={value=>update('body',value)}/>
   {hasAmbiguousNumericBold(fields.body)&&<p className="caution" role="status">数字で始まる「**…**」が注釈として扱われる箇所があります。太字にする場合は、先頭の ** と数字の間に半角または全角の空白を入れてください（例：** 123の説明**）。この空白は表示されません。</p>}
+  <PythonEditor onInsert={value=>{
+    const start=editorRef.current?.selectionStart??fields.body.length;
+    const end=editorRef.current?.selectionEnd??start;
+    const next=fields.body.slice(0,start)+value+fields.body.slice(end);
+    if(next.length>200000){alert('本文の20万文字上限を超えます。コードや画像を減らすか、別の本文に分けてください。');return}
+    update('body',next);
+    requestAnimationFrame(()=>{editorRef.current?.focus();editorRef.current?.setSelectionRange(start+value.length,start+value.length)})
+  }}/>
   <EditorBodySearch body={fields.body} editorRef={editorRef}/>
   <Field label="本文 *"><textarea required minLength={10} maxLength={200000} rows={15} className="body-editor" value={fields.body} onChange={e=>update('body',e.target.value)} ref={editorRef} style={{fontSize:editorSize}}/>
     <span className="hint">{fields.body.length.toLocaleString()} / 200,000文字</span></Field>{preview&&<div className="editor-preview"><div className="eyebrow">LIVE PREVIEW / 公開時の表示</div><RichBody screenplay={isScreenplay(fields)} source={fields.body} fontSize={editorSize}/></div>}</>}{fields.node_kind==='collection'&&fields.body.trim()&&<p className="hint">このグループには旧版の案内本文が保存されています。グループの編集でその本文は消えません。本文を編集する場合は種類を「作品・本文」に切り替えてください。</p>}</div>

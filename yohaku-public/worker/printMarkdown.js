@@ -1,3 +1,4 @@
+import {PythonCode} from '../src/pythonPlot.js'
 import React from 'react'
 import {renderToStaticMarkup} from 'react-dom/server.edge'
 import Markdown from 'react-markdown'
@@ -43,7 +44,7 @@ export function renderPrintMarkdown(source,{work={},origin='',included=new Set()
     // Native MathML keeps mathematics self-contained in the saved PDF.
     rehypePlugins:[[rehypeKatex,{output:'mathml',trust:false,strict:'ignore',throwOnError:false,maxExpand:1000}]],
     skipHtml:true,
-    components:{img:({alt})=>React.createElement('span',{className:'print-image-description'},alt?'［画像：'+alt+'］':'［画像］')},
+    components:{code:PythonCode,img:({alt})=>React.createElement('span',{className:'print-image-description'},alt?'［画像：'+alt+'］':'［画像］')},
   },prepareAnnotationSource(preserveParagraphIndentation(text)))
   return renderToStaticMarkup(React.createElement('div',{className:'print-markdown'},
     script&&characters.length?React.createElement('aside',{className:'screenplay-cast'},React.createElement('h3',null,'登場人物'),React.createElement('p',null,characters.join(' ／ '))):null,
@@ -51,6 +52,7 @@ export function renderPrintMarkdown(source,{work={},origin='',included=new Set()
 }
 
 export const printMarkdownCss=`
+.python-output-image{max-width:100%;height:auto;display:block}.print-markdown pre:has(.python-output-image){background:none;padding:0;white-space:normal}
 .print-markdown{line-height:1.45;overflow-wrap:anywhere}
 .print-markdown p{white-space:normal;margin:0 0 .35em;orphans:3;widows:3}
 .export-record .print-markdown h1{font-size:18pt}.export-record .print-markdown h2{font-size:16pt}.export-record .print-markdown h3{font-size:14pt}

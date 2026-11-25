@@ -102,7 +102,7 @@ pageNumberPosition.addEventListener('change',()=>{
 // 可能な範囲だけの黙った書き出しは行わない。上限を超えたら明確なエラーにする。
 export const loadExportDocument = loadPublicDocument
 
-const noStore={'cache-control':'no-store','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"}
+const noStore={'cache-control':'no-store','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"}
 const plainError=(message,status,method)=>new Response(method==='HEAD'?null:message,{status,headers:{...noStore,'content-type':'text/plain; charset=utf-8'}})
 
 export async function serveWorkExport(request, env) {
