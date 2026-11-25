@@ -435,3 +435,7 @@
 .publication-schedule{margin:10px 0}.publication-schedule summary{cursor:pointer;color:var(--rust)}.publication-schedule input{max-width:280px;display:block}.publication-schedule .button{margin:6px 8px 0 0}
 
 .unlisted-share{margin:10px 0}.unlisted-share summary{cursor:pointer;color:var(--rust)}.unlisted-share input{margin:10px 0}.unlisted-share a{font-size:12px}
+
+.editor-body-search{margin:12px 0;padding:12px;border:1px solid var(--line);background:var(--paper)}
+.editor-body-search label{font-size:12px}.editor-body-search input{margin-top:5px}.editor-search-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.body-editor::selection{background:#f1d590;color:#262722}

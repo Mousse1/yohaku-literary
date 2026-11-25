@@ -1,3 +1,4 @@
+import EditorBodySearch from './EditorBodySearch.jsx'
 import {hasAmbiguousNumericBold} from './annotationMarkers.js'
 import {jstDateInput,scheduledInstant} from './publicationSchedule.js'
 import WorkTitle from './WorkTitle.jsx'
@@ -862,6 +863,7 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
   }}/>}
   <NoteLinkEditor source={fields.body} parentId={fields.parent_work_id} works={parentOptions.map(o=>o.work)} onChange={value=>update('body',value)}/>
   {hasAmbiguousNumericBold(fields.body)&&<p className="caution" role="status">数字で始まる「**…**」が注釈として扱われる箇所があります。太字にする場合は、先頭の ** と数字の間に半角または全角の空白を入れてください（例：** 123の説明**）。この空白は表示されません。</p>}
+  <EditorBodySearch body={fields.body} editorRef={editorRef}/>
   <Field label="本文 *"><textarea required minLength={10} maxLength={200000} rows={15} className="body-editor" value={fields.body} onChange={e=>update('body',e.target.value)} ref={editorRef} style={{fontSize:editorSize}}/>
     <span className="hint">{fields.body.length.toLocaleString()} / 200,000文字</span></Field>{preview&&<div className="editor-preview"><div className="eyebrow">LIVE PREVIEW / 公開時の表示</div><RichBody screenplay={isScreenplay(fields)} source={fields.body} fontSize={editorSize}/></div>}</>}{fields.node_kind==='collection'&&fields.body.trim()&&<p className="hint">このグループには旧版の案内本文が保存されています。グループの編集でその本文は消えません。本文を編集する場合は種類を「作品・本文」に切り替えてください。</p>}</div>
   <details className="editor-section"><summary className="section-small" style={{cursor:'pointer'}}>02 / 思想・技法・知識の位置づけ</summary><p className="muted">記載は任意です。確証がない場合は「仮説」として記述してください。</p><Field label="この作品が問うこと"><textarea maxLength={2000} rows={3} value={fields.question} onChange={e=>update('question',e.target.value)}/></Field><Field label="先行作品から継承するもの"><textarea maxLength={2000} rows={3} value={fields.inheritance} onChange={e=>update('inheritance',e.target.value)}/></Field><Field label="新たに試みること"><textarea maxLength={2000} rows={3} value={fields.novelty} onChange={e=>update('novelty',e.target.value)}/></Field></details>
