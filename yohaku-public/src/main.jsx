@@ -1,3 +1,5 @@
+import AttachmentEditor from './AttachmentEditor.jsx'
+import {attachmentFields,joinAttachments} from './attachments.js'
 import PythonEditor from './PythonEditor.jsx'
 import EditorBodySearch from './EditorBodySearch.jsx'
 import {hasAmbiguousNumericBold} from './annotationMarkers.js'
@@ -599,7 +601,7 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
   const [basicInfoOpen,setBasicInfoOpen]=useState(()=>!initial?.id||initial?.node_kind==='collection')
   const cacheKey=draftCacheKey(user?.id,initial?.id,revisionMode)
   const restored=useRef(getDraftCache(cacheKey,initial?.updated_at))
-  const [fields,setFields]=useState(()=>restored.current?.fields|| (initial?{...emptyWork,...initial,section:categoryOf(initial),contributor_credit:initial.contributor_credit||''}:{...emptyWork,node_kind:initialKind,...(initialParent?{parent_work_id:initialParent.id,pen_name:initialParent.pen_name,contributor_credit:initialParent.contributor_credit||'',section:categoryOf(initialParent),genre:initialParent.genre}:{} )}))
+  const [fields,setFields]=useState(()=>attachmentFields(restored.current?.fields|| (initial?{...emptyWork,...initial,section:categoryOf(initial),contributor_credit:initial.contributor_credit||''}:{...emptyWork,node_kind:initialKind,...(initialParent?{parent_work_id:initialParent.id,pen_name:initialParent.pen_name,contributor_credit:initialParent.contributor_credit||'',section:categoryOf(initialParent),genre:initialParent.genre}:{} )})))
   const [refs,setRefs]=useState(()=>restored.current?.refs?.map(unpackReference)||initial?.work_references?.map(ref=>({...unpackReference(ref),relation:ref.relation||'',url:ref.url||''}))||[])
   const [changeNote,setChangeNote]=useState(restored.current?.changeNote??initialChangeNote)
   const safetyKey=editorSafetyKey(cacheKey)
@@ -648,7 +650,8 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
     update('body',fields.body.slice(0,position)+'**'+fields.body.slice(position))
     requestAnimationFrame(()=>{field?.focus();field?.setSelectionRange(position+2,position+2)})
   }
-  const update=(key,value)=>setFields(o=>({...o,[key]:value}))
+  const update=(key,value)=>setFields(o=>{const next={...o,[key]:value};if(joinAttachments(next.body,next.attachments).length>200000){alert('本文と添付資料の合計が保存上限を超えます。画像やコードを減らしてください。');return o}return next})
+  const addAttachment=a=>setFields(o=>{const attachments=[...(o.attachments||[]),a];if(attachments.length>10||joinAttachments(o.body,attachments).length>200000){alert('添付資料は10件まで、本文との合計は20万文字分までです。画像やコードを減らしてください。');return o}return {...o,attachments}})
   async function insertMarkdownFile(event) {
     const file=event.target.files?.[0]
     event.target.value=''
@@ -702,7 +705,7 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
   },[fields,refs,changeNote,safetyKey])
   const applyEditorSnapshot=snapshot=>{
     skipHistory.current=true
-    setFields({...snapshot.fields})
+    setFields(attachmentFields({...snapshot.fields}))
     setRefs(snapshot.refs.map(ref=>({...ref})))
     setChangeNote(snapshot.changeNote)
   }
@@ -865,7 +868,7 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
   }}/>}
   <NoteLinkEditor source={fields.body} parentId={fields.parent_work_id} works={parentOptions.map(o=>o.work)} onChange={value=>update('body',value)}/>
   {hasAmbiguousNumericBold(fields.body)&&<p className="caution" role="status">数字で始まる「**…**」が注釈として扱われる箇所があります。太字にする場合は、先頭の ** と数字の間に半角または全角の空白を入れてください（例：** 123の説明**）。この空白は表示されません。</p>}
-  <PythonEditor onInsert={value=>{
+  <PythonEditor onAttach={addAttachment} onInsert={value=>{
     const start=editorRef.current?.selectionStart??fields.body.length;
     const end=editorRef.current?.selectionEnd??start;
     const next=fields.body.slice(0,start)+value+fields.body.slice(end);
@@ -873,9 +876,10 @@ function WorkForm({initial,initialParent=null,initialKind='work',parentOptions=[
     update('body',next);
     requestAnimationFrame(()=>{editorRef.current?.focus();editorRef.current?.setSelectionRange(start+value.length,start+value.length)})
   }}/>
+  <AttachmentEditor items={fields.attachments||[]} onAdd={addAttachment} onChange={value=>update('attachments',value)}/>
   <EditorBodySearch body={fields.body} editorRef={editorRef}/>
   <Field label="本文 *"><textarea required minLength={10} maxLength={200000} rows={15} className="body-editor" value={fields.body} onChange={e=>update('body',e.target.value)} ref={editorRef} style={{fontSize:editorSize}}/>
-    <span className="hint">{fields.body.length.toLocaleString()} / 200,000文字</span></Field>{preview&&<div className="editor-preview"><div className="eyebrow">LIVE PREVIEW / 公開時の表示</div><RichBody screenplay={isScreenplay(fields)} source={fields.body} fontSize={editorSize}/></div>}</>}{fields.node_kind==='collection'&&fields.body.trim()&&<p className="hint">このグループには旧版の案内本文が保存されています。グループの編集でその本文は消えません。本文を編集する場合は種類を「作品・本文」に切り替えてください。</p>}</div>
+    <span className="hint">本文 {fields.body.length.toLocaleString()}文字 ／ 添付を含む保存量 {joinAttachments(fields.body,fields.attachments).length.toLocaleString()} / 200,000文字分</span></Field>{preview&&<div className="editor-preview"><div className="eyebrow">LIVE PREVIEW / 公開時の表示</div><RichBody screenplay={isScreenplay(fields)} source={fields.body} fontSize={editorSize}/></div>}</>}{fields.node_kind==='collection'&&fields.body.trim()&&<p className="hint">このグループには旧版の案内本文が保存されています。グループの編集でその本文は消えません。本文を編集する場合は種類を「作品・本文」に切り替えてください。</p>}</div>
   <details className="editor-section"><summary className="section-small" style={{cursor:'pointer'}}>02 / 思想・技法・知識の位置づけ</summary><p className="muted">記載は任意です。確証がない場合は「仮説」として記述してください。</p><Field label="この作品が問うこと"><textarea maxLength={2000} rows={3} value={fields.question} onChange={e=>update('question',e.target.value)}/></Field><Field label="先行作品から継承するもの"><textarea maxLength={2000} rows={3} value={fields.inheritance} onChange={e=>update('inheritance',e.target.value)}/></Field><Field label="新たに試みること"><textarea maxLength={2000} rows={3} value={fields.novelty} onChange={e=>update('novelty',e.target.value)}/></Field></details>
   <div className="editor-section"><div className="section-small">03 / 参考文献・関連作品</div><p className="muted">パンフレット・書籍・配布資料など、URLのない文献も登録できます。URLは任意（空欄可）です。各作品につき20件まで。対応番号を入れると本文の注釈印を押して「並べて読む」で開けます。上位ファイルの番号も *1 などで参照できます。同じ番号は本文側、近い上位ファイルの順に優先します。</p>{refs.map((r,i)=><div className="ref-edit" key={i}><div className="ref-edit-head"><strong>文献 {i+1}{r.annotationNumber?` ／ 注釈 *${r.annotationNumber}`:''}</strong><button className="text-action dangerous" type="button" onClick={()=>setRefs(a=>a.filter((_,j)=>j!==i))}><Trash2 size={13}/> 削除</button></div><div className="two-col"><Field label="書名・資料名・著者など *"><input required maxLength={290} value={r.title} onChange={e=>setRef(i,'title',e.target.value)}/></Field><Field label="関連の理由"><input maxLength={200} value={r.relation} onChange={e=>setRef(i,'relation',e.target.value)}/></Field></div><Field label="対応する注釈番号（任意・例：1）"><input type="number" min="1" max="999999" step="1" value={r.annotationNumber||''} onChange={e=>setRef(i,'annotationNumber',e.target.value)} placeholder="本文の **（1番目）と対応"/></Field><Field label="参考URL（任意・空欄で登録できます）"><input type="url" maxLength={1000} value={r.url} onChange={e=>setRef(i,'url',e.target.value)}/></Field></div>)}<button type="button" disabled={refs.length>=20} className="button light small" onClick={()=>setRefs(x=>[...x,{title:'',relation:'',url:''}])}><Plus size={15}/>文献を追加</button></div>
   {revisionMode&&<div className="editor-section"><div className="section-small">04 / 改訂の説明</div><label><input type="checkbox" style={{width:'auto'}} checked={fields.keep_previous_body!==false} onChange={e=>update('keep_previous_body',e.target.checked)}/> 更新前の本文を改訂履歴に残す</label><p className="hint">チェックを外すと、新版の承認時に直前の版の本文を履歴から削除します。</p><Field label="今回変更した内容（任意）"><textarea rows={3} maxLength={1000} value={changeNote} onChange={e=>setChangeNote(e.target.value)}/></Field><p className="hint">承認後、この説明は改訂履歴に掲載されます。公開中の旧版は審査完了まで変更されません。</p></div>}

@@ -1,3 +1,4 @@
+import {attachmentMarkdown} from '../src/attachments.js'
 import {noteLinks,noteLinkSegments} from '../src/noteLinks.js'
 import {decodeGenres} from '../src/classifications.js'
 import {annotationSegments} from '../src/annotationMarkers.js'
@@ -23,7 +24,7 @@ export function recordJson(record,origin) {
 }
 // Convert editorial markers only. Ordinary Markdown, code and LaTeX stay intact.
 export function markdownBody(work,origin='') {
-  return noteLinkSegments(work.body).map(part=>part.type==='link'
+  return attachmentMarkdown(noteLinkSegments(work.body).map(part=>part.type==='link'
     ? '['+part.link.label.replace(/[\\\[\]]/g,ch=>'\\'+ch)+']('+origin+part.link.url+')'
-    : annotationSegments(part.value).map(p=>p.type==='marker'?`[^work-${work.id}-note-${p.number}]`:p.value).join('')).join('')
+    : annotationSegments(part.value).map(p=>p.type==='marker'?`[^work-${work.id}-note-${p.number}]`:p.value).join('')).join(''))
 }

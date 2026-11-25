@@ -1,3 +1,5 @@
+import {splitAttachments} from '../src/attachments.js'
+import {AttachmentView,attachmentCss} from '../src/AttachmentView.js'
 import {PythonCode} from '../src/pythonPlot.js'
 import React from 'react'
 import {renderToStaticMarkup} from 'react-dom/server.edge'
@@ -35,6 +37,7 @@ function remarkPrintDestinations({scope,origin,included,reader}) {
 // The print route renders Markdown on the server, using the same annotation,
 // paragraph and screenplay rules as the reader. No submitted HTML is executed.
 export function renderPrintMarkdown(source,{work={},origin='',included=new Set(),reader=false}={}) {
+  const separated=splitAttachments(source);source=separated.body
   const script=isScreenplay(work)
   const {characters,text}=script?screenplayDocument(source):{characters:[],text:String(source||'')}
   const plugins=[remarkGfm,remarkMath,remarkBreaks,[remarkAnnotationMarkers,{interactive:false}],remarkParagraphSpacing,[remarkNoteLinks,{links:noteLinks(source)}],
@@ -48,10 +51,10 @@ export function renderPrintMarkdown(source,{work={},origin='',included=new Set()
   },prepareAnnotationSource(preserveParagraphIndentation(text)))
   return renderToStaticMarkup(React.createElement('div',{className:'print-markdown'},
     script&&characters.length?React.createElement('aside',{className:'screenplay-cast'},React.createElement('h3',null,'登場人物'),React.createElement('p',null,characters.join(' ／ '))):null,
-    rendered))
+    rendered,React.createElement(AttachmentView,{attachments:separated.attachments})))
 }
 
-export const printMarkdownCss=`
+export const printMarkdownCss=attachmentCss+`
 .python-output-image{max-width:100%;height:auto;display:block}.print-markdown pre:has(.python-output-image){background:none;padding:0;white-space:normal}
 .print-markdown{line-height:1.45;overflow-wrap:anywhere}
 .print-markdown p{white-space:normal;margin:0 0 .35em;orphans:3;widows:3}

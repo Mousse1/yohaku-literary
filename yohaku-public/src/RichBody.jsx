@@ -1,3 +1,5 @@
+import {splitAttachments} from './attachments.js'
+import {AttachmentView} from './AttachmentView.js'
 import {PythonCode} from './pythonPlot.js'
 import {noteLinks,remarkNoteLinks} from './noteLinks'
 import {screenplayDocument,remarkScreenplay} from './screenplay'
@@ -17,6 +19,7 @@ import { remarkParagraphSpacing } from './paragraphSpacing'
 const rehypePlugins = [[rehypeKatex, { trust: false, strict: 'ignore', throwOnError: false, maxExpand: 1000 }]]
 
 export default function RichBody({ source='', fontSize=16, className='', onAnnotationClick, screenplay=false }) {
+  const separated=splitAttachments(source);source=separated.body
   const {characters,text}=screenplay?screenplayDocument(source):{characters:[],text:source}
   const links=noteLinks(source)
   const plugins = useMemo(() => [remarkGfm, remarkMath, remarkBreaks, [remarkAnnotationMarkers, {interactive: Boolean(onAnnotationClick)}], remarkParagraphSpacing, [remarkNoteLinks,{links}], ...(screenplay?[[remarkScreenplay,{characters}]]:[])], [Boolean(onAnnotationClick),screenplay,characters.join('\n'),JSON.stringify(links)])
@@ -33,5 +36,6 @@ export default function RichBody({ source='', fontSize=16, className='', onAnnot
     <Markdown components={{code:PythonCode}} remarkPlugins={plugins} rehypePlugins={rehypePlugins} skipHtml>
       {prepareAnnotationSource(preserveParagraphIndentation(text))}
     </Markdown>
+    <AttachmentView attachments={separated.attachments}/>
   </div>
 }

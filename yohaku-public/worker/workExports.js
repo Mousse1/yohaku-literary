@@ -1,3 +1,4 @@
+import {attachmentMarkdown} from '../src/attachments.js'
 import {titleHtml,plainTitle} from '../src/titleFormat.js'
 import {authorLabel} from '../src/workLabels.js'
 import {renderPrintMarkdown,printMarkdownCss} from './printMarkdown.js'
@@ -28,7 +29,7 @@ function textLines(record, origin, isRoot=false) {
   for(const [heading,key] of [['概要','summary'],['この作品が問うこと','question'],['先行作品から継承するもの','inheritance'],['新たに試みること','novelty']]) {
     if(w[key]) parts.push(`${heading}\n${w[key]}`)
   }
-  if(w.body) parts.push(`本文\n${w.body}`)
+  if(w.body) parts.push(`本文\n${attachmentMarkdown(w.body,{images:false})}`)
   if(record.references.length)parts.push('参考文献・関連作品\n'+sortedExportReferences(record.references).map(r=>`・${r.annotation_number?'注釈 *'+r.annotation_number+': ':''}${r.title}${r.relation?' — '+r.relation:''}${r.url?'\n  '+r.url:''}`).join('\n'))
   return parts.join('\n\n')
 }

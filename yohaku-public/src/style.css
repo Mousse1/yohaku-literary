@@ -444,3 +444,6 @@
 
 /* Keep the site subtitle visible on narrow screens. */
 @media(max-width:1050px){.brand{flex-direction:column;align-items:flex-start;gap:0}.brand-sub{display:block;font-size:10px;line-height:1.4;white-space:nowrap}}
+
+.work-attachments{border-top:1px solid #ccc;margin-top:24px;padding-top:12px}.work-attachment{margin:16px 0}.work-attachment h4{margin-bottom:8px}.work-attachment img{max-width:100%;height:auto}.work-attachment pre{white-space:pre-wrap;overflow-wrap:anywhere}.work-attachment p{white-space:pre-wrap}.work-attachment summary{cursor:pointer}.work-attachment .attachment-download{display:inline-block;margin-bottom:8px}@media print{.attachment-download{display:none}}
+.attachment-editor{border:1px solid var(--line);padding:16px;margin:18px 0}.attachment-editor label{display:block;margin:10px 0}
