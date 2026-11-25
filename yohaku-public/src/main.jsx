@@ -1,3 +1,4 @@
+import {rememberEditedPath} from './ownerExpansion.js'
 import AttachmentEditor from './AttachmentEditor.jsx'
 import {attachmentFields,joinAttachments} from './attachments.js'
 import PythonEditor from './PythonEditor.jsx'
@@ -396,6 +397,10 @@ function App(){
   const left = works.find(w=>w.id===compareA)||works[0]
   const right = works.find(w=>w.id===compareB)||works.find(w=>w.id!==left?.id)
 
+  useEffect(()=>{
+    const work=route==='revise'?revisionEditing?.work:route==='submit'?editing:null
+    if(user?.id&&work?.id)rememberEditedPath(user.id,work,[...treeIndex,...mine])
+  },[route,editing,revisionEditing,user?.id,mine,treeIndex])
   const workDialog = selected && <ReaderErrorBoundary key={selected.id} resetKey={selected.id} work={selected} treeNodes={treeIndex} onBack={()=>navigate('explore')}><WorkDialog key={selected.id} asPage={route==='work'} work={selected} user={user} notes={notes} revisions={revisions} onClose={()=>route==='work'?navigate('explore'):setSelected(null)} onCompare={()=>compareWork(selected)} onParallel={()=>parallelWork(selected)} onAnnotationClick={parallelAnnotation} onLogin={()=>setAuthOpen(true)} onReload={()=>loadWorkExtras(selected.id)} flash={flash} onEdit={()=>{setEditing(selected);navigate('submit')}} onManageVisibility={()=>navigate('mine')} onRevise={()=>editPublished(selected)} onRequest={action=>requestAction(selected,action)} onDelete={()=>deleteWork(selected)} treeNodes={treeIndex} onOpenTreeWork={openWorkId} onCreateChild={kind=>createChild(selected,kind)}/></ReaderErrorBoundary>
 
   return <>
@@ -470,7 +475,7 @@ function App(){
       }} onSubmit={saveRevision} disabled={loading} onCancel={()=>{setRevisionEditing(null);navigate('mine')}}/>}
     </main>}
     {route==='mine'&&<main className="container page"><div className="eyebrow">MY LIBRARY</div><h1 className="serif page-title">自分の作品</h1><div className="section-heading"><p>{mine.length} 作品</p><div className="group-actions"><button className="button light" disabled={loading} onClick={()=>beginCreation('collection')}><FolderTree size={16}/> 最上位グループを作成</button><button className="button primary" disabled={loading} onClick={()=>beginCreation('work')}><Plus size={16}/>新しい作品を書く</button></div></div>
-      {!mine.length ? <div className="empty">まだ投稿作品がありません。</div> : <MyWorkLibrary
+      {!mine.length ? <div className="empty">まだ投稿作品がありません。</div> : <MyWorkLibrary key={user?.id||'guest'}
         onScheduleSaved={async()=>{await Promise.all([loadMine(),loadPublished(),loadTree()])}} works={mine} revisions={myRevisions} requests={myRequests} busy={loading} userId={user?.id}
         onVisibility={async(work,makePublic)=>{
           setLoading(true)

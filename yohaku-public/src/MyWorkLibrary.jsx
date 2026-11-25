@@ -1,3 +1,4 @@
+import {rememberedExpanded,rememberExpansion} from './ownerExpansion.js'
 import UnlistedShare from './UnlistedShare.jsx'
 import PublicationSchedule from './PublicationSchedule.jsx'
 import WorkTitle from './WorkTitle.jsx'
@@ -31,7 +32,7 @@ export default function MyWorkLibrary({
   const roots = useMemo(() => organizeOwnerWorks(works,{childSort}), [works,childSort])
   const [reordering,setReordering] = useState(false)
   const [reorderError,setReorderError] = useState('')
-  const [expandedIds, setExpandedIds] = useState(() => new Set())
+  const [expandedIds, setExpandedIds] = useState(() => rememberedExpanded(userId))
   const revisionByWork = useMemo(() => new Map(revisions.map(revision => [revision.work_id, revision])), [revisions])
   const requestsByWork = useMemo(() => {
     const map = new Map()
@@ -46,16 +47,18 @@ export default function MyWorkLibrary({
     const next = new Set(current)
     if (next.has(id)) next.delete(id)
     else next.add(id)
+    rememberExpansion(userId,[id],next.has(id))
     return next
   })
   const setAllCollapsed = close => {
-    if (close) { setExpandedIds(new Set()); return }
+    if (close) { rememberExpansion(userId,works.map(w=>w.id),false);setExpandedIds(new Set()); return }
     const ids = new Set()
     function collect(node) {
       if (node.children.length) ids.add(node.work.id)
       node.children.forEach(collect)
     }
     roots.forEach(collect)
+    rememberExpansion(userId,[...ids],true)
     setExpandedIds(ids)
   }
   async function moveChild(siblings,index,delta) {
@@ -133,13 +136,11 @@ export default function MyWorkLibrary({
   return <section className="owner-library" aria-label="自分の作品の階層一覧">
     <div className="owner-library-tools">
       <div className="owner-library-sort-info">
-        <p>最上位は最近保存・編集した作品を優先して表示します。グループ内は保存した手動の並び順が初期設定で、公開作品の目次・本文も同じ順序になります。グループは初期状態では閉じています。</p>
         <label className="owner-child-sort-label" htmlFor="owner-child-sort">グループ内の並び順
           <select id="owner-child-sort" value={childSort} onChange={e=>setChildSort(e.target.value)}>
             {childSortOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>
-        {childSort==='manual'&&<p className="owner-sort-hint">グループを開き、各作品の ↑ ↓ で順序を変更できます。変更はサイトに保存され、公開作品の目次にも反映されます。</p>}
         {reorderError&&<p className="owner-sort-error" role="alert">{reorderError}</p>}
       </div>
       <div className="owner-library-tool-buttons">
