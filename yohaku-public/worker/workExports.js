@@ -1,4 +1,4 @@
-import {attachmentMarkdown} from '../src/attachments.js'
+import {attachmentMarkdown,splitAttachments} from '../src/attachments.js'
 import {titleHtml,plainTitle} from '../src/titleFormat.js'
 import {authorLabel} from '../src/workLabels.js'
 import {renderPrintMarkdown,printMarkdownCss} from './printMarkdown.js'
@@ -36,7 +36,7 @@ function textLines(record, origin, isRoot=false) {
 
 export function renderExportText(doc, origin, markdown=false) {
   if(markdown)return renderExportMarkdown(doc,origin)
-  const title=`${doc.root.title || '無題'} — 余白 — 創作と研究のノート`
+  const title=`${doc.root.title || '無題'} — 余白 — 研究と考察のノート`
   const sections=doc.records.map((record,index)=>{
     const raw=textLines(record,origin,index===0)
     if(!markdown) return raw.replace(/^#{1,2} /,'')
@@ -68,20 +68,33 @@ export function printFileStarts(records) {
   return keys.map((key,index)=>index>0&&key!==keys[index-1]);
 }
 
-function htmlRecord(record, origin, main=false, index=0, included=new Set(), fileStart=false, fileKey=record.work.id) {
+function exportMarkdown(source,work,origin,included,options){
+  if(!options.deferBody)return renderPrintMarkdown(source,{work,origin,included})
+  const data={source,work:{id:work.id,section:work.section,genre:work.genre},origin}
+  return '<template data-print-markdown>'+escapeHtml(JSON.stringify(data))+'</template>'
+}
+function attachmentPrintLinks(attachments,work,origin,options){
+  if(!attachments.length)return ''
+  const url=options.shareBase?options.shareBase+'#work-'+work.id:canonicalUrl(origin,work.id)
+  return '<section class="attachment-print-links"><h3>添付資料</h3><ul>'+attachments.map((a,i)=>'<li>資料'+(i+1)+'：'+escapeHtml(a.name)+'</li>').join('')+'</ul><p>添付資料は作品ページで閲覧できます。</p><a href="'+escapeHtml(url)+'">'+escapeHtml(url)+'</a></section>'
+}
+function htmlRecord(record, origin, main=false, index=0, included=new Set(), fileStart=false, fileKey=record.work.id,options={}) {
   const w=record.work
   const heading=main?'h1':'h2'
   const hideRootTitle=main&&w.node_kind==='collection'
-  const hasBody=Boolean(w.body?.trim())
+  const separated=options.printAttachments===false?{body:w.body,attachments:[]}:splitAttachments(w.body)
+  const attachmentLinks=attachmentPrintLinks(separated.attachments,w,origin,options)
+  const hasBody=Boolean(separated.body?.trim())
   const info=[['作品の概要','summary'],['この作品が問うこと','question'],['先行作品から継承するもの','inheritance'],['新たに試みること','novelty']]
     .filter(([,key])=>w[key]?.trim())
-    .map(([title,key])=>`<section class="meta-section"><h3>${escapeHtml(title)}</h3>${renderPrintMarkdown(w[key],{work:{id:w.id},origin,included})}</section>`).join('')
+    .map(([title,key])=>`<section class="meta-section"><h3>${escapeHtml(title)}</h3>${exportMarkdown(w[key],{id:w.id},origin,included,options)}</section>`).join('')
   const refs=record.references.length?`<section class="meta-section export-references" data-reference-title="${escapeHtml(record.path||w.title||'無題')}"><h3>参考文献・関連作品</h3><ul>${sortedExportReferences(record.references).map((r,ri)=>`<li id="ref-${escapeHtml(w.id)}-${r.annotation_number||'item-'+ri}">${r.annotation_number?'注釈 *'+r.annotation_number+': ':''}${escapeHtml(r.title)}${r.relation?' — '+escapeHtml(r.relation):''}${r.url?`<div><a href="${escapeHtml(r.url)}">${escapeHtml(r.url)}</a></div>`:''}</li>`).join('')}</ul></section>`:''
-  const headingOnly=!hasBody&&!info&&!refs
-  return `<article data-print-file="${escapeHtml(fileKey)}" id="${recordAnchor(index)}" class="export-record${fileStart?' file-start':''}${main?' is-root':''}${headingOnly?' is-heading-only':''}"><header class="export-record-header"><span id="work-${escapeHtml(w.id)}"></span>${hideRootTitle?'':`<${heading}>${titleHtml(w.title||'無題',escapeHtml)}</${heading}>`}${w.contributor_credit?'<p class="credits">入力・構成：'+escapeHtml(w.contributor_credit)+'</p>':''}</header>${hasBody?`<section class="body-section">${renderPrintMarkdown(w.body,{work:w,origin,included})}</section>`:''}${info}${refs}</article>`
+  const headingOnly=!hasBody&&!info&&!refs&&!attachmentLinks
+  return `<article data-print-file="${escapeHtml(fileKey)}" id="${recordAnchor(index)}" class="export-record${fileStart?' file-start':''}${main?' is-root':''}${headingOnly?' is-heading-only':''}"><header class="export-record-header"><span id="work-${escapeHtml(w.id)}"></span>${hideRootTitle?'':`<${heading}>${titleHtml(w.title||'無題',escapeHtml)}</${heading}>`}${w.contributor_credit?'<p class="credits">入力・構成：'+escapeHtml(w.contributor_credit)+'</p>':''}</header>${hasBody?`<section class="body-section">${exportMarkdown(separated.body,w,origin,included,options)}</section>`:''}${info}${refs}${attachmentLinks}</article>`
 }
-export function renderExportHtml(doc, origin) {
-  const title=`${plainTitle(doc.root.title)||'無題'}｜余白 — 創作と研究のノート`
+export function renderExportHtml(doc, origin, options={}) {
+  const title=`${plainTitle(doc.root.title)||'無題'}｜余白 — 研究と考察のノート`
+  const includedIds=new Set(doc.records.map(r=>r.work.id))
   const fileStarts=printFileStarts(doc.records)
   const fileKeys=printFileKeys(doc.records)
   const toc=`<nav class="export-toc" aria-label="目次"><h1>${titleHtml(doc.root.title||'無題',escapeHtml)}</h1><p class="credits">${exportAuthorLabel(doc)}：${escapeHtml(exportAuthors(doc))}</p><h2>目次</h2><ol class="toc-items">${doc.records.map((r,i)=>i===0&&r.work.node_kind==='collection'?'':`<li data-toc-kind="${r.work.node_kind==='collection'?'file':'body'}" style="margin-left:${Math.min(Math.max(Number(r.depth)||0,0),12)*14}px"><a class="toc-page-number" href="#${recordAnchor(i)}">${titleHtml(recordLabel(r),escapeHtml)}</a></li>`).join('')}</ol></nav>`
@@ -90,7 +103,7 @@ ${screenplayCss}
 ${printMarkdownCss}
 @page{size:A4;margin:19mm 18mm}*{box-sizing:border-box}html{background:#eeeae1}body{margin:0;color:#272722;font-family:"Noto Serif JP","Yu Mincho","Hiragino Mincho ProN",serif;font-size:12pt;line-height:1.55}.controls{position:sticky;top:0;background:#eeeae1;padding:13px 20px;display:flex;justify-content:center;align-items:center;gap:12px;font-family:system-ui,sans-serif;font-size:13px}.controls{flex-wrap:wrap}.controls .print-help{flex-basis:100%;text-align:center;margin:0;line-height:1.6}.controls select{padding:6px}.controls button{background:#272722;color:#fff;border:0;padding:10px 20px;border-radius:4px;cursor:pointer}.controls a{color:#82513b}.sheet{background:white;max-width:210mm;padding:24mm 19mm;margin:12px auto;box-shadow:0 6px 40px #0002}.export-toc{break-after:page}.export-toc a{color:#654a3b}.export-toc li{margin:6pt 0;break-inside:avoid}.export-toc .toc-items{list-style:none;padding-left:0}.export-toc .toc-items a{display:block;position:relative;padding-right:3em}.export-toc .toc-items a.toc-page-number::after{content:target-counter(attr(href), page);position:absolute;right:0;bottom:0;font-variant-numeric:tabular-nums}.export-record{break-before:page;scroll-margin-top:70px;margin-top:24pt}.export-record.is-root{break-before:auto}.export-record.is-heading-only+.export-record{break-before:auto}.export-record-header{break-inside:avoid-page;break-after:avoid-page}.export-record-header h1,.export-record-header h2,.credits{break-after:avoid-page}.export-record.is-heading-only{break-after:avoid-page;margin-top:16pt}.is-heading-only .export-record-header{margin-bottom:0}.is-heading-only+.export-record{margin-top:12pt}.is-heading-only .export-record-header h1{font-size:18pt;margin:8pt 0}.is-heading-only .export-record-header h2{font-size:16pt;margin:6pt 0}.is-heading-only .credits{font-size:8pt;margin:3pt 0}.export-record h1{font-size:25pt;line-height:1.45}.export-record h2{font-size:19pt;line-height:1.5}.export-record h3{font-size:12pt;margin:18pt 0 6pt}.credits,.source-url{color:#65645e;font-size:9pt;line-height:1.6}.export-text{white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;line-height:1.45;margin:12pt 0}.reference-collection{margin-top:24pt}.reference-collection h2{font-size:19pt;break-after:avoid-page}.reference-collection h3{font-size:12pt;break-after:avoid-page}.reference-collection li{overflow-wrap:anywhere}.meta-section{break-inside:auto}.meta-section>h3{break-after:avoid-page}.meta-section .export-text{font-size:11pt}.source-url{margin-top:20pt;overflow-wrap:anywhere}.source-url a{color:#654a3b}.export-record li{margin:4pt 0;overflow-wrap:anywhere}sup.annotation-marker{font-size:.68em;line-height:0;vertical-align:super}
 </style><style id="export-print-style" data-pagedjs-ignore>@media print{html{background:white}.controls{display:none}.sheet{max-width:none;margin:0;padding:0;box-shadow:none}.export-toc{break-after:page}.export-toc a{color:#654a3b}.export-toc li{margin:6pt 0;break-inside:avoid}.export-toc .toc-items{list-style:none;padding-left:0}.export-toc .toc-items a{display:block;position:relative;padding-right:3em}.export-toc .toc-items a.toc-page-number::after{content:target-counter(attr(href), page);position:absolute;right:0;bottom:0;font-variant-numeric:tabular-nums}.export-record{break-before:page;scroll-margin-top:70px;margin-top:24pt}.export-record.is-root{break-before:auto}.export-record.is-heading-only+.export-record{break-before:auto}a{color:inherit;text-decoration:none}}
-</style><style id="page-number-style">@page{@bottom-center{content:counter(page);font-family:system-ui,sans-serif;font-size:9pt;color:#65645e}}</style><script defer src="/vendor/paged-0.4.3.min.js"></script><script defer src="/print-pagination.js"></script></head><body><div class="controls"><button id="print-button" type="button" disabled onclick="window.print()">印刷・PDFとして保存</button><a href="${escapeHtml(canonicalUrl(origin,doc.root.id))}">作品に戻る</a><label for="page-number-position">ページ番号</label><select id="page-number-position"><option value="bottom-center">下中央</option><option value="bottom-right">下右</option><option value="none">なし</option></select><label>改ページ<select id="print-break-mode"><option value="file">ファイル単位で改ページ</option><option value="none">改ページなし（続けて配置）</option><option value="item">本文ごとに改ページ</option></select></label><label>目次のページ番号<select id="print-toc-numbers"><option value="all">ファイルも含む</option><option value="body">本文だけ</option></select></label><label>文字サイズ<select id="print-font-size"><option value="9">9pt</option><option value="10">10pt</option><option value="11">11pt</option><option value="12" selected>12pt（標準）</option><option value="14">14pt</option><option value="16">16pt</option></select></label><label>参考文献の位置<select id="print-reference-position"><option value="item">本文ごと</option><option value="file">ファイルごと</option><option value="end">最後に一カ所</option></select></label><label>文章の間隔<select id="print-density"><option value="compact">詰める</option><option value="standard" selected>標準</option><option value="relaxed">ゆったり</option></select></label><p class="print-help">同じファイル内の本文は続けて配置します。「改ページなし」でも、用紙に収まらない文章は次のページへ続きます。入力した改行は保持します。</p><p class="print-help">印刷先で「PDFに保存」を選択してください。正しく保存されない場合は、プリンター（送信先）を「PDFとして保存」にしてください。「Microsoft Print to PDF」で崩れる場合も、ブラウザ標準のPDF保存をお試しください。</p><p class="print-help">ページ番号は対応ブラウザで下側の余白に表示されます。ページのURLや日時を載せないため、印刷設定の「ヘッダーとフッター」をオフにしてください。</p><p id="pagination-status" class="print-help" role="status">印刷用のページと目次を準備しています…</p></div><main id="print-source" class="sheet">${toc}${doc.records.map((r,i)=>htmlRecord(r,origin,i===0,i,new Set(doc.records.map(r=>r.work.id)),fileStarts[i],fileKeys[i])).join('')}</main><div id="print-pages"></div><noscript><p>目次のページ番号を付けるにはJavaScriptを有効にしてください。</p></noscript><script>
+</style><style id="page-number-style">@page{@bottom-center{content:counter(page);font-family:system-ui,sans-serif;font-size:9pt;color:#65645e}}</style><script defer src="/vendor/paged-0.4.3.min.js"></script>${options.deferBody?'<script defer src="/print-renderer.js"></script>':''}<script defer src="/print-pagination.js"></script></head><body><div class="controls"><button id="print-button" type="button" disabled onclick="window.print()">印刷・PDFとして保存</button><a href="${escapeHtml(canonicalUrl(origin,doc.root.id))}">作品に戻る</a><label for="page-number-position">ページ番号</label><select id="page-number-position"><option value="bottom-center">下中央</option><option value="bottom-right">下右</option><option value="none">なし</option></select><label>改ページ<select id="print-break-mode"><option value="file">ファイル単位で改ページ</option><option value="none">改ページなし（続けて配置）</option><option value="item">本文ごとに改ページ</option></select></label><label>目次のページ番号<select id="print-toc-numbers"><option value="all">ファイルも含む</option><option value="body">本文だけ</option></select></label><label>文字サイズ<select id="print-font-size"><option value="9">9pt</option><option value="10">10pt</option><option value="11">11pt</option><option value="12" selected>12pt（標準）</option><option value="14">14pt</option><option value="16">16pt</option></select></label><label>参考文献の位置<select id="print-reference-position"><option value="item">本文ごと</option><option value="file">ファイルごと</option><option value="end">最後に一カ所</option></select></label><label>文章の間隔<select id="print-density"><option value="compact">詰める</option><option value="standard" selected>標準</option><option value="relaxed">ゆったり</option></select></label><p class="print-help">同じファイル内の本文は続けて配置します。「改ページなし」でも、用紙に収まらない文章は次のページへ続きます。入力した改行は保持します。</p><p class="print-help">印刷先で「PDFに保存」を選択してください。正しく保存されない場合は、プリンター（送信先）を「PDFとして保存」にしてください。「Microsoft Print to PDF」で崩れる場合も、ブラウザ標準のPDF保存をお試しください。</p><p class="print-help">ページ番号は対応ブラウザで下側の余白に表示されます。ページのURLや日時を載せないため、印刷設定の「ヘッダーとフッター」をオフにしてください。</p><p id="pagination-status" class="print-help" role="status">印刷用のページと目次を準備しています…</p></div><main id="print-source" class="sheet">${toc}${doc.records.map((r,i)=>htmlRecord(r,origin,i===0,i,includedIds,fileStarts[i],fileKeys[i],options)).join('')}</main><div id="print-pages"></div><noscript><p>${options.deferBody?'印刷用の本文と目次を準備するにはJavaScriptを有効にしてください。':'目次のページ番号を付けるにはJavaScriptを有効にしてください。'}</p></noscript><script>
 const pageNumberPosition=document.getElementById('page-number-position');
 pageNumberPosition.addEventListener('change',()=>{
  const position=pageNumberPosition.value;
@@ -160,7 +173,7 @@ export async function serveWorkExport(request, env) {
     const markdown = match[2] === "md";
 
     const body = printable
-      ? renderExportHtml(doc, origin)
+      ? renderExportHtml(doc, origin,{deferBody:true})
       : direct ? renderExportMarkdown(doc, origin, true) : renderExportText(doc, origin, markdown);
 
     const type = printable

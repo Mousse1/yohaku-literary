@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
+    "build": "node scripts/build-print-renderer.mjs && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test:public": "node --test tests/public-reading-http.test.mjs",
     "test:regression": "node --test tests/annotation-and-order.test.mjs",
@@ -35,6 +35,7 @@
     "vite": "^6.3.5",
     "wrangler": "^4.154.0",
     "react-test-renderer": "^19.1.0",
-    "@electric-sql/pglite": "^0.5.13"
+    "@electric-sql/pglite": "^0.5.13",
+    "esbuild": "0.25.12"
   }
 }

@@ -6,6 +6,14 @@
   const status = document.getElementById('pagination-status');
   const position = document.getElementById('page-number-position');
   if (!source || !output) return;
+  try {
+    if(window.yohakuPrintReady)await window.yohakuPrintReady;
+    if(source.querySelector('template[data-print-markdown]'))throw Error('本文の整形処理を読み込めませんでした。');
+  } catch(error) {
+    status.textContent='本文を準備できませんでした。再読み込みしてください。';
+    document.documentElement.dataset.pagination='error';console.error(error);return;
+  }
+
   const displayStyle = document.createElement('style');
   displayStyle.setAttribute('data-pagedjs-ignore', '');
   displayStyle.textContent = `

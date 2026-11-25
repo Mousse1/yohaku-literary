@@ -34,15 +34,14 @@ export async function serveUnlisted(request,env) {
     inheritDocumentReferences(doc.records)
     const base=url.origin+'/share/'+match[1]
     const format=match[2]
-    let body=format==='md'?renderExportMarkdown(doc,url.origin):format==='txt'?renderExportText(doc,url.origin):renderExportHtml(doc,url.origin)
+    let body=format==='md'?renderExportMarkdown(doc,url.origin):format==='txt'?renderExportText(doc,url.origin):renderExportHtml(doc,url.origin,{deferBody:true,printAttachments:Boolean(match[3]),shareBase:base})
     // Keep all included chapters and note links inside this capability URL.
-    for(const record of doc.records){
-      const id=record.work.id
-      body=body.replaceAll(url.origin+'/works/'+id+'#note-',base+'#'+id+'-note-')
-        .replaceAll(url.origin+'/works/'+id,base+'#work-'+id)
-    }
+    const includedIds=new Set(doc.records.map(record=>record.work.id))
+    const prefix=url.origin.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')
+    body=body.replace(new RegExp(prefix+'/works/([0-9a-f-]{36})(#note-)?','gi'),(original,id,note)=>includedIds.has(id)?base+'#'+(note?id+'-note-':'work-'+id):original)
     if(format==='md')body=body.replace(/^JSON:.*$/m,'')
     if(!format){
+      if(!match[3])body=body.replace('onclick="window.print()"',`onclick="location.href='${base}/print'"`)
       const links='<a href="'+base+'">限定公開ページ</a> ／ <a href="'+base+'.md">Markdownを保存</a> ／ <a href="'+base+'.txt">テキストを保存</a>'
       body=body.replace('<div class="controls">','<div class="controls">'+links)
         .replace('<meta name="viewport"', '<meta name="referrer" content="no-referrer"><meta name="viewport"')
