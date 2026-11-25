@@ -17,7 +17,7 @@ const updatedFmt = date => date ? new Date(date).toLocaleString('ja-JP',{year:'n
 
 export default function MyWorkLibrary({
   works = [], revisions = [], requests = [], busy = false, userId = null,
-  onScheduleSaved, onVisibility, onRead, onCreateChild, onEdit, onDelete, onRevise, onRequest, onCancelRequest, onReorderChildren,
+  onScheduleSaved, onVisibility, onPublishBranch, onRead, onCreateChild, onEdit, onDelete, onRevise, onRequest, onCancelRequest, onReorderChildren,
 }) {
   // Start everyone on saved manual order once; later explicit choices persist.
   const sortPrefKey=`yohaku:owner-child-sort:v7_7_1:${userId||'guest'}`
@@ -115,6 +115,7 @@ export default function MyWorkLibrary({
           <button className="text-action" onClick={() => onCreateChild(w,'work')}><Plus size={14}/> 本文を追加</button>
           {publicStatus(w.status)&&<button className="text-action" disabled={busy || (node.privateParent && w.owner_private)} onClick={()=>onVisibility(w,Boolean(w.owner_private))}>{w.owner_private?'一般公開にする':'非公開にする'}</button>}
           {w.owner_unlisted&&<button className="text-action" disabled={busy} onClick={()=>onVisibility(w,false)}>非公開にする</button>}
+          {isGroup&&hasChildren&&publicStatus(w.status)&&<button type="button" className="text-action" disabled={busy} onClick={()=>onPublishBranch(w)}>下位にも公開を適用</button>}
           {visible&&<a className="text-action" href={`${window.location.origin}/works/${encodeURIComponent(w.id)}`}><LinkIcon size={13}/> 公開URL</a>}{visible&&<WorkExportLinks workId={w.id} compact/>}
           {['draft','pending','rejected','open'].includes(w.status)&&<>
             <button className="text-action" onClick={()=>onEdit(w)}>編集</button>

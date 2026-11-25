@@ -1,3 +1,4 @@
+import {fileReferenceGroups} from '../src/fileReferenceGroups.js'
 import {plainTitle,titleHtml} from '../src/titleFormat.js'
 import {authorLabel} from '../src/workLabels.js'
 import {splitAttachments} from '../src/attachments.js'
@@ -7,10 +8,11 @@ const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 function markdown(source,work,origin){return '<template data-reader-markdown>'+escape(JSON.stringify({source,work:{id:work.id,section:work.section,genre:work.genre},origin}))+'</template>'}
 export function renderUnlistedReader(doc,origin,base){
  const root=doc.root
+ const referenceGroups=new Map(fileReferenceGroups(doc.records).map(group=>[group.id,group.references]))
  const records=doc.records.map((record,index)=>{
   const w=record.work;const separated=splitAttachments(w.body);const hasContent=Boolean(w.body?.trim());
-  const refs=sortedExportReferences(record.references||[])
-  const references=refs.length?'<section class="reader-references"><h3>参考文献・関連作品</h3><ul>'+refs.map((r,i)=>'<li id="ref-'+escape(w.id)+'-'+(r.annotation_number||'item-'+i)+'">'+(r.annotation_number?'*'+r.annotation_number+'　':'')+escape(r.title)+(r.relation?'<p>'+escape(r.relation)+'</p>':'')+(r.url?'<a href="'+escape(r.url)+'" target="_blank" rel="noopener noreferrer">'+escape(r.url)+'</a>':'')+'</li>').join('')+'</ul></section>':''
+  const refs=referenceGroups.get(w.id)||[]
+  const references=refs.length?'<section class="reader-references"><h3>参考文献・関連作品</h3><ul>'+refs.map((r,i)=>'<li id="file-ref-'+escape(w.id)+'-'+i+'">'+r._aliases.map(id=>'<span id="'+escape(id)+'"></span>').join('')+(r.annotation_number?'*'+r.annotation_number+'　':'')+escape(r.title)+(r.relation?'<p>'+escape(r.relation)+'</p>':'')+(r.url?'<a href="'+escape(r.url)+'" target="_blank" rel="noopener noreferrer">'+escape(r.url)+'</a>':'')+'</li>').join('')+'</ul></section>':''
   const info=['question','inheritance','novelty'].map((key,i)=>w[key]?'<details class="reader-context"><summary>'+['この作品が問うこと','先行作品から継承するもの','新たに試みること'][i]+'</summary><p>'+escape(w[key])+'</p></details>':'').join('')
   const notes=(record.notes||[]).map(n=>'<article class="reader-note"><h4>'+escape(n.type)+' — '+escape(n.pen_name)+'</h4><p>'+escape(n.body)+'</p></article>').join('')
   if(index===0&&!hasContent&&!info&&!references&&!notes)return '<span id="work-'+escape(w.id)+'" data-share-work="'+escape(w.id)+'"></span>'

@@ -307,11 +307,8 @@ export function ParallelReferences({work,referenceNumber,showSource,onToggleSour
   return <div className="parallel-references">
     {Boolean(referenceNumber) && <AnnotationReferenceFocus references={references} referenceNumber={referenceNumber} showSource={showSource} onToggleSource={onToggleSource}/>}
     {[['作品の問い',work.question],['継承するもの',work.inheritance],['新たに試みること',work.novelty]].map(([label,value])=><section key={label}><h3>{label}</h3><p className="multiline">{readableText(value)||'未記載'}</p></section>)}
-    <section><h3>参考文献・関連作品</h3>{references.length?references.map((r,i)=>{
-      const ref=unpackReference(r)
-      return <div key={r.id||i} className="reference"><strong>{ref.annotationNumber?`*${ref.annotationNumber}　`:''}{ref.title}</strong>{ref.relation&&<p>{ref.relation}</p>}{safeUrl(ref.url)&&<a href={safeUrl(ref.url)} target="_blank" rel="noopener noreferrer">文献リンク <ArrowUpRight size={12}/></a>}</div>
-    }):<p className="muted">登録されていません。</p>}</section>
+    <DescendantReferences workId={work.id} rootWork={work} ownReferences={references} enabled={['published','open'].includes(work.status)}/>
     <ReaderPartBoundary resetKey={work.id} fallback={<p role="alert">読者による参考文献を表示できませんでした。</p>}><CommunityReferences workId={work.id} user={user} onLogin={onLogin} compact/></ReaderPartBoundary>
-    <ReaderPartBoundary resetKey={work.id} fallback={<p role="alert">下位作品の参考文献を表示できませんでした。</p>}><DescendantReferences workId={work.id} enabled={['published','open'].includes(work.status)}/></ReaderPartBoundary>
+    
   </div>
 }
