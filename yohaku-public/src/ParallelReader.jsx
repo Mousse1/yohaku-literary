@@ -1,3 +1,4 @@
+import {inheritedNumberedReferences,loadReferenceAncestors} from './referenceAnnotations.js'
 import WorkTitle from './WorkTitle.jsx'
 import ReviewMark from './ReviewMark.jsx'
 import {authorLabel} from './workLabels.js'
@@ -208,7 +209,12 @@ function ParallelPane({pane,index,available,otherSelections,fontSize,user,onLogi
         .select('*,work_references(*)').eq('id',pane.workId).in('status',['published','open']).maybeSingle()
       if(!active)return
       if(workError||!data){setError(workError?messageFor(workError):'作品が見つからないか、非公開です。');setLoadState('notfound');return}
-      setWork({...data,work_references:normalizeReferences(data.work_references)})
+      const ancestors=pane.kind==='refs'?await loadReferenceAncestors(data,async id=>{
+        const {data:parent,error}=await publicReader.from('works').select('id,title,parent_work_id,work_references(*)').eq('id',id).in('status',['published','open']).maybeSingle();
+        if(error)throw error;return parent;
+      }):[];
+      if(!active)return;
+      setWork({...data,work_references:inheritedNumberedReferences(data,ancestors)})
       if(pane.kind==='notes'){
         const {data:noteRows,error:noteError}=await supabase.from('notes')
           .select('id,work_id,author_id,pen_name,type,body,created_at,status')
@@ -278,7 +284,7 @@ export function AnnotationReferenceFocus({references,referenceNumber,showSource,
     <div className="eyebrow">ANNOTATION / *{referenceNumber}</div>
     <h3>注釈 *{referenceNumber} に対応する参考文献</h3>
     {ref?<>
-      <strong>{ref.title}</strong>
+      <strong>{ref.title}</strong>{ref.source_title&&<p className="hint">上位ファイル「{ref.source_title}」の参考文献</p>}
       {ref.relation&&<p>{ref.relation}</p>}
       {link&&<>
         <div className="parallel-source-actions">

@@ -1,3 +1,4 @@
+import {inheritDocumentReferences} from '../src/referenceAnnotations.js'
 import {isUuid,runtimeConfig} from './publicWorksApi.js'
 import {publicReference} from './publicAnnotations.js'
 import {renderExportHtml,renderExportMarkdown,renderExportText} from './workExports.js'
@@ -30,6 +31,7 @@ export async function serveUnlisted(request,env) {
     if(!doc)return respond('作品が見つからないか、共有が終了しています。',404)
     if(!doc.root||!Array.isArray(doc.records)||doc.records.length>240)return respond('共有内容を取得できませんでした。',503)
     for(const record of doc.records)record.references=(record.references||[]).map(publicReference)
+    inheritDocumentReferences(doc.records)
     const base=url.origin+'/share/'+match[1]
     const format=match[2]
     let body=format==='md'?renderExportMarkdown(doc,url.origin):format==='txt'?renderExportText(doc,url.origin):renderExportHtml(doc,url.origin)

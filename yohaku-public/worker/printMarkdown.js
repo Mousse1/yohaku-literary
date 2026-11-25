@@ -14,7 +14,7 @@ import {isScreenplay,screenplayDocument,remarkScreenplay} from '../src/screenpla
 function remarkPrintDestinations({scope,origin,included,reader}) {
   return tree=>{
     const visit=node=>{
-      if(reader && node.data?.hName==='sup' && node.data.hProperties?.className?.includes('annotation-marker')){
+      if(node.data?.hName==='sup' && node.data.hProperties?.className?.includes('annotation-marker')){
         const number=node.children?.[0]?.value
         node.data={hName:'a',hProperties:{role:'doc-noteref',href:'#ref-'+scope+'-'+number,'aria-label':'注釈 '+number}}
         node.children=[{type:'emphasis',data:{hName:'sup'},children:node.children}]

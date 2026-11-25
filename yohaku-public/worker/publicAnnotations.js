@@ -7,7 +7,7 @@ export function publicReference(row) {
   const ref=unpackReference(row)
   let url=null
   try {const parsed=new URL(ref.url);if(parsed.protocol==='https:')url=parsed.href}catch{}
-  return {title:ref.title,relation:String(ref.relation||''),url,annotation_number:ref.annotationNumber||row.annotation_number||null}
+  return {...(row.source_work_id?{source_work_id:row.source_work_id,source_title:row.source_title}:{}),title:ref.title,relation:String(ref.relation||''),url,annotation_number:ref.annotationNumber||row.annotation_number||null}
 }
 export function annotationLinks(work,references=[]) {
   const numbers=[...new Set(noteLinkSegments(work.body).flatMap(p=>p.type==='text'?annotationSegments(p.value):[]).filter(p=>p.type==='marker').map(p=>p.number))]

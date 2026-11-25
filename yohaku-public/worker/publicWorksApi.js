@@ -1,3 +1,4 @@
+import {loadReferenceAncestors,inheritDocumentReferences} from '../src/referenceAnnotations.js'
 import {noteLinks} from '../src/noteLinks.js'
 import {decodeGenres} from '../src/classifications.js'
 import {publicReference, annotationLinks, recordJson} from './publicAnnotations.js'
@@ -510,5 +511,12 @@ export async function loadPublicDocument(env,id,knownRoot=null) {
   // Recheck visibility after fetching related content; no privileged credentials used.
   const visible=await getVisibleDetails(env,records.map(r=>r.work))
   if(visible.length!==records.length)throw new Error('publication_changed')
+  const ancestors=await loadReferenceAncestors(root,async parentId=>{
+    const parent=await getWork(env,parentId);
+    if(!parent)return null;
+    const index=await getReferenceIndex(env,[parent.id],true);
+    return {...parent,references:index.get(parent.id)||[]};
+  });
+  inheritDocumentReferences(records,ancestors);
   return {root,records}
 }
