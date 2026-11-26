@@ -69,6 +69,7 @@ export const printMarkdownCss=attachmentCss+`
 .print-markdown th,.print-markdown td{border:1px solid #c8beb1;padding:5pt;overflow-wrap:anywhere}.print-markdown tr{break-inside:avoid-page}
 .print-markdown hr{border:0;border-top:1px solid #c8beb1;margin:16pt 0}.print-markdown a{color:#654a3b}
 .print-markdown math[display="block"]{margin:12pt 0;overflow-wrap:anywhere}
+.print-markdown p.body-paragraph-gap-2{margin-bottom:0!important}
 .print-markdown .body-paragraph-gap-3{margin-bottom:1.5em}.print-markdown .body-paragraph-gap-4{margin-bottom:2em}
 .print-markdown .body-paragraph-gap-5{margin-bottom:2.5em}.print-markdown .body-paragraph-gap-6{margin-bottom:3em}
 .print-markdown .body-paragraph-gap-7{margin-bottom:3.5em}.print-markdown .body-paragraph-gap-8{margin-bottom:4em}

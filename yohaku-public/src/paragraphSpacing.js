@@ -1,4 +1,5 @@
-// Keep the author's visual separation between paragraphs without changing
+// Preserve paragraph boundaries while CSS makes two newlines look like one.
+// Keep larger intentional gaps without changing
 // the source saved in Supabase. Markdown collapses 2+ successive newlines to a
 // single paragraph boundary; record their count on the preceding paragraph.
 // A single newline remains a normal <br> via remark-breaks.
