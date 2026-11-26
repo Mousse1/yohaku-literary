@@ -1,3 +1,4 @@
+import {loadReadableWork} from './readerAccess.js'
 import {rememberEditedPath} from './ownerExpansion.js'
 import AttachmentEditor from './AttachmentEditor.jsx'
 import {attachmentFields,joinAttachments} from './attachments.js'
@@ -209,6 +210,7 @@ function App(){
     if(!n.error)setNotes(n.data||[])
     if(!v.error)setRevisions(v.data||[])
   }
+  useEffect(()=>{if(selected&&!isPublicWork(selected)&&selected.author_id!==user?.id)setSelected(null)},[user?.id]);
   const openWork = async work => {
     setSelected(work);setNotes([]);setRevisions([])
     if(configured&&isPublicWork(work)&&uuidPattern.test(work.id)){
@@ -230,9 +232,7 @@ function App(){
     }
     ;(async()=>{
       try {
-        const {data,error}=await publicReader.from('works')
-          .select('*,work_references(*)')
-          .eq('id',pathWorkId).in('status',PUBLIC_WORK_STATUSES).maybeSingle()
+        const data=await loadReadableWork(pathWorkId,user?.id,supabase,publicReader);const error=null
         if(!active)return
         if(error||!data){setSelected(null);setWorkLoadState('notfound');return}
         setSelected(data);setWorkLoadState('ready')
@@ -242,7 +242,7 @@ function App(){
       }
     })()
     return()=>{active=false}
-  },[route,pathWorkId])
+  },[route,pathWorkId,user?.id])
   useEffect(()=>{
     const isPublicPage=route==='work'&&isPublicWork(selected)&&selected?.id===pathWorkId
     const original='余白 — 研究と考察のノート'
@@ -254,6 +254,9 @@ function App(){
     canonical.href=isPublicPage?makeWorkUrl(selected.id):location.origin+'/'
   },[route,pathWorkId,selected])
   const openWorkId = id => {
+    const own=mine.find(w=>w.id===id&&w.author_id===user?.id);
+    if(own&&!isPublicWork(own)){setSelected(own);setNotes([]);setRevisions([]);loadWorkExtras(id);return}
+
     if(!configured){
       const item=demoWorks.find(w=>w.id===id)
       if(item){setSelected(item);setNotes([]);setRevisions([])}
@@ -288,7 +291,7 @@ function App(){
   }
   const createChild = (parent,kind='work') => beginCreation(kind,parent)
   const parallelWork = (work,kind='body') => {
-    if(!isPublicWork(work)) {flash('並列表示には公開作品を選んでください。');return}
+    if(!isPublicWork(work)&&work.author_id!==user?.id) {flash('この作品を閲覧する権限がありません。');return}
     setParallelSeed([{workId:work.id,kind:'body'},{workId:work.id,kind}]);navigate('parallel')
   }
   const parallelAnnotation = (workId, number) => {
@@ -401,7 +404,7 @@ function App(){
     const work=route==='revise'?revisionEditing?.work:route==='submit'?editing:null
     if(user?.id&&work?.id)rememberEditedPath(user.id,work,[...treeIndex,...mine])
   },[route,editing,revisionEditing,user?.id,mine,treeIndex])
-  const workDialog = selected && <ReaderErrorBoundary key={selected.id} resetKey={selected.id} work={selected} treeNodes={treeIndex} onBack={()=>navigate('explore')}><WorkDialog key={selected.id} asPage={route==='work'} work={selected} user={user} notes={notes} revisions={revisions} onClose={()=>route==='work'?navigate('explore'):setSelected(null)} onCompare={()=>compareWork(selected)} onParallel={()=>parallelWork(selected)} onAnnotationClick={parallelAnnotation} onLogin={()=>setAuthOpen(true)} onReload={()=>loadWorkExtras(selected.id)} flash={flash} onEdit={()=>{setEditing(selected);navigate('submit')}} onManageVisibility={()=>navigate('mine')} onRevise={()=>editPublished(selected)} onRequest={action=>requestAction(selected,action)} onDelete={()=>deleteWork(selected)} treeNodes={treeIndex} onOpenTreeWork={openWorkId} onCreateChild={kind=>createChild(selected,kind)}/></ReaderErrorBoundary>
+  const workDialog = selected && <ReaderErrorBoundary key={selected.id} resetKey={selected.id} work={selected} treeNodes={treeIndex} onBack={()=>navigate('explore')}><WorkDialog key={selected.id} asPage={route==='work'} work={selected} user={user} notes={notes} revisions={revisions} onClose={()=>route==='work'?navigate('explore'):setSelected(null)} onCompare={()=>compareWork(selected)} onParallel={()=>parallelWork(selected)} onAnnotationClick={parallelAnnotation} onLogin={()=>setAuthOpen(true)} onReload={()=>loadWorkExtras(selected.id)} flash={flash} onEdit={()=>{setEditing(selected);navigate('submit')}} onManageVisibility={()=>navigate('mine')} onRevise={()=>editPublished(selected)} onRequest={action=>requestAction(selected,action)} onDelete={()=>deleteWork(selected)} treeNodes={user?.id&&selected.author_id===user.id?[...treeIndex.filter(w=>!mine.some(m=>m.id===w.id)),...mine]:treeIndex} onOpenTreeWork={openWorkId} onCreateChild={kind=>createChild(selected,kind)}/></ReaderErrorBoundary>
 
   return <>
     <header className="header"><div className="container header-inner">
@@ -439,7 +442,7 @@ function App(){
     {route==='work'&&(selected?.id===pathWorkId?workDialog:<main className="container reader-route" aria-live="polite">
       <div className="reader-route-message"><div className="eyebrow">READ / WORK</div>{workLoadState==='loading'?<p>作品を読み込んでいます…</p>:<><h1 className="serif">作品を表示できません</h1><p>作品が見つからないか非公開です。通信エラーの場合は再読み込みしてください。</p><button className="button light" onClick={()=>navigate('explore')}>作品一覧に戻る</button></>}</div>
     </main>)}
-    {route==='parallel'&&<ParallelReader initialPanes={parallelSeed} publishedWorks={works} publishedIndex={treeIndex} user={user} onLogin={()=>setAuthOpen(true)} onExit={()=>navigate('explore')} onOpenSingle={openWorkId}/>}
+    {route==='parallel'&&<ParallelReader key={user?.id||'anonymous'} initialPanes={parallelSeed} publishedWorks={works} publishedIndex={treeIndex} ownerWorks={mine} user={user} onLogin={()=>setAuthOpen(true)} onExit={()=>navigate('explore')} onOpenSingle={openWorkId}/>}
     {route==='compare'&&<main className="container page"><div className="eyebrow">READ / COMPARE</div><h1 className="serif page-title">二つの作品を、読み比べる。</h1><p className="page-lead">投稿者が登録した「問い」「継承」「試み」「参考文献」を並べます。文学的価値や独創性を機械的に採点するものではありません。</p>
       {works.length<2?<div className="empty">公開作品がまだ二つありません。</div>:<><div className="dual-controls"><label>作品 A<select value={left?.id||''} onChange={e=>setCompareA(e.target.value)}>{works.map(w=><option key={w.id} value={w.id}>{plainTitle(w.title)} — {w.pen_name}{w.status==='open'?'（自由公開）':''}</option>)}</select></label><label>作品 B<select value={right?.id||''} onChange={e=>setCompareB(e.target.value)}>{works.map(w=><option key={w.id} value={w.id}>{plainTitle(w.title)} — {w.pen_name}{w.status==='open'?'（自由公開）':''}</option>)}</select></label></div>
       {left?.id===right?.id&&<p className="caution">異なる作品を選ぶことをおすすめします。</p>}
@@ -599,11 +602,11 @@ function WorkDialog({asPage=false,work,user,notes,revisions,onClose,onCompare,on
     while(cursor&&iterations++<12){parents.unshift(cursor);cursor=byId.get(cursor.parent_work_id)}
     return parents.map(p=><React.Fragment key={p.id}><span> › </span><button type="button" onClick={()=>onOpenTreeWork(p.id)}>{p.title}</button></React.Fragment>)
   })()}<span> › {work.title}</span></nav>}
-  <div className="work-toolbar">{isOwn&&PUBLIC_WORK_STATUSES.includes(work.status)&&<button className="button light small" onClick={onManageVisibility}>公開設定</button>}{configured&&isPublicWork(work)&&uuidPattern.test(work.id)&&<button className="button primary small" onClick={shareWork}><LinkIcon size={15}/>作品のURLを共有</button>}{configured&&isPublicWork(work)&&uuidPattern.test(work.id)&&<WorkExportLinks workId={work.id}/>}<button className="button light small" onClick={onCompare}><GitCompareArrows size={15}/>この作品を比較</button>{isPublicWork(work)&&<button className="button light small" onClick={onParallel}><BookOpen size={15}/>並べて読む</button>}{editable&&<><button className="button light small" onClick={onEdit}><PenLine size={15}/>編集する</button><button className="button ghost-danger small" onClick={onDelete}>削除</button></>}{isOwn&&work.status==='published'&&<><button className="button light small" onClick={onRevise}><PenLine size={15}/>改訂版を書く</button><button className="button ghost-danger small" onClick={()=>onRequest('delete')}>削除申請</button></>}{configured&&isPublicWork(work)&&user&&!isOwn&&<button className="button light small" onClick={()=>setReportOpen(x=>!x)}><Flag size={14}/>通報</button>}</div>
+  <div className="work-toolbar">{isOwn&&PUBLIC_WORK_STATUSES.includes(work.status)&&<button className="button light small" onClick={onManageVisibility}>公開設定</button>}{configured&&isPublicWork(work)&&uuidPattern.test(work.id)&&<button className="button primary small" onClick={shareWork}><LinkIcon size={15}/>作品のURLを共有</button>}{configured&&isPublicWork(work)&&uuidPattern.test(work.id)&&<WorkExportLinks workId={work.id}/>}<button className="button light small" onClick={onCompare}><GitCompareArrows size={15}/>この作品を比較</button>{(isPublicWork(work)||isOwn)&&<button className="button light small" onClick={onParallel}><BookOpen size={15}/>並べて読む</button>}{editable&&<><button className="button light small" onClick={onEdit}><PenLine size={15}/>編集する</button><button className="button ghost-danger small" onClick={onDelete}>削除</button></>}{isOwn&&work.status==='published'&&<><button className="button light small" onClick={onRevise}><PenLine size={15}/>改訂版を書く</button><button className="button ghost-danger small" onClick={()=>onRequest('delete')}>削除申請</button></>}{configured&&isPublicWork(work)&&user&&!isOwn&&<button className="button light small" onClick={()=>setReportOpen(x=>!x)}><Flag size={14}/>通報</button>}</div>
   {reportOpen&&<form className="report-box" onSubmit={doReport}><label>通報理由<select value={reason} onChange={e=>setReason(e.target.value)}>{reportReasons.map(s=><option key={s}>{s}</option>)}</select></label><label>補足（任意）<textarea maxLength={1000} value={detail} onChange={e=>setDetail(e.target.value)}/></label><button className="button primary small" disabled={busy}>通報を送信</button></form>}
   <div className="reading-controls" aria-label="本文の文字サイズ"><span>本文の文字サイズ</span><button className="button light small" type="button" onClick={()=>setReaderSize(v=>Math.max(12,v-2))} disabled={readerSize<=12} aria-label="本文を小さく">A−</button><strong aria-live="polite">{readerSize}px</strong><button className="button light small" type="button" onClick={()=>setReaderSize(v=>Math.min(26,v+2))} disabled={readerSize>=26} aria-label="本文を大きく">A＋</button><button className="text-action" type="button" onClick={()=>setReaderSize(16)}>標準に戻す</button><button type="button" className="button light small" aria-pressed={wideReading} onClick={()=>setWideReading(v=>!v)}>{wideReading?'本文の幅を戻す':'本文を横に広げる'}</button></div>
-  <ReadingNavigation work={work} nodes={treeNodes} onOpen={onOpenTreeWork}/><div className="work-layout"><section><div className="eyebrow">{work.node_kind==='collection'?'COLLECTION / INTRO':'TEXT / ARTICLE'}</div>{work.body?.trim() ? <CollapsibleBody key={work.id} defaultOpen={work.node_kind!=='collection'}><ReaderPartBoundary key={`body-${work.id}`} fallback={<pre className="reader-raw-body">{work.body}</pre>}><RichBody screenplay={isScreenplay(work)} source={work.body} fontSize={readerSize} onAnnotationClick={isPublicWork(work) ? number => onAnnotationClick(work.id,number) : undefined}/></ReaderPartBoundary></CollapsibleBody> : !isPublicWork(work) && <p className="muted">この項目には本文がありません。</p>}<ReaderPartBoundary key={`desc-${work.id}`} fallback={<p role="alert">下位作品を表示できませんでした。ページを再読み込みしてください。</p>}><DescendantBodies rootWorkId={work.id} treeNodes={treeNodes} fontSize={readerSize} enabled={isPublicWork(work)} onAnnotationClick={onAnnotationClick}/></ReaderPartBoundary></section><aside className="work-sidebar"><h3>{work.node_kind==='collection'?'グループ全体が問うこと':'作品の問い'}</h3><p>{work.question||'未記載'}</p><h3>先行作品から受け継ぐもの</h3><p>{work.inheritance||'未記載'}</p><h3>新たに試みること</h3><p>{work.novelty||'未記載'}</p><ReaderPartBoundary key={`references-${work.id}`}> <DescendantReferences workId={work.id} rootWork={work} ownReferences={work.work_references||[]} enabled={isPublicWork(work)}/></ReaderPartBoundary><ReaderPartBoundary key={`community-${work.id}`}><CommunityReferences workId={isPublicWork(work)?work.id:null} user={user} onLogin={onLogin}/></ReaderPartBoundary><p className="hint">これらの記述は投稿者／入力・構成者による解釈や仮説であり、原著者の見解や独創性を運営が保証するものではありません。</p></aside></div>
-  <ReadingNavigation work={work} nodes={treeNodes} onOpen={onOpenTreeWork}/>
+  <ReadingNavigation ownerId={user?.id&&work.author_id===user.id?user.id:null} work={work} nodes={treeNodes} onOpen={onOpenTreeWork}/><div className="work-layout"><section><div className="eyebrow">{work.node_kind==='collection'?'COLLECTION / INTRO':'TEXT / ARTICLE'}</div>{work.body?.trim() ? <CollapsibleBody key={work.id} defaultOpen={work.node_kind!=='collection'}><ReaderPartBoundary key={`body-${work.id}`} fallback={<pre className="reader-raw-body">{work.body}</pre>}><RichBody screenplay={isScreenplay(work)} source={work.body} fontSize={readerSize} onAnnotationClick={(isPublicWork(work)||isOwn) ? number => onAnnotationClick(work.id,number) : undefined}/></ReaderPartBoundary></CollapsibleBody> : !isPublicWork(work) && <p className="muted">この項目には本文がありません。</p>}<ReaderPartBoundary key={`desc-${work.id}`} fallback={<p role="alert">下位作品を表示できませんでした。ページを再読み込みしてください。</p>}><DescendantBodies rootWorkId={work.id} treeNodes={treeNodes} fontSize={readerSize} enabled={isPublicWork(work)||isOwn} ownerId={isOwn?user.id:null} onOpen={onOpenTreeWork} onAnnotationClick={onAnnotationClick}/></ReaderPartBoundary></section><aside className="work-sidebar"><h3>{work.node_kind==='collection'?'グループ全体が問うこと':'作品の問い'}</h3><p>{work.question||'未記載'}</p><h3>先行作品から受け継ぐもの</h3><p>{work.inheritance||'未記載'}</p><h3>新たに試みること</h3><p>{work.novelty||'未記載'}</p><ReaderPartBoundary key={`references-${work.id}`}> <DescendantReferences onOpen={onOpenTreeWork} workId={work.id} rootWork={work} ownReferences={work.work_references||[]} ownerWorks={isOwn?treeNodes.filter(w=>w.author_id===user.id):null} enabled={isPublicWork(work)||isOwn}/></ReaderPartBoundary><ReaderPartBoundary key={`community-${work.id}`}><CommunityReferences workId={isPublicWork(work)?work.id:null} user={user} onLogin={onLogin}/></ReaderPartBoundary><p className="hint">これらの記述は投稿者／入力・構成者による解釈や仮説であり、原著者の見解や独創性を運営が保証するものではありません。</p></aside></div>
+  <ReadingNavigation ownerId={user?.id&&work.author_id===user.id?user.id:null} work={work} nodes={treeNodes} onOpen={onOpenTreeWork}/>
   {configured&&<section className="toc-section"><h3><FolderTree size={18}/> この作品の目次・収録作品</h3><ChildTree parentId={work.id} nodes={treeNodes} onSelect={onOpenTreeWork}/>{!treeNodes.some(n=>n.parent_work_id===work.id)&&<p className="hint">収録作品はまだありません。</p>}{isOwn&&<div className="group-actions"><button className="button light small" onClick={()=>onCreateChild('collection')}><FolderTree size={15}/> 下位グループを作成</button><button className="button light small" onClick={()=>onCreateChild('work')}><Plus size={15}/> 作品・本文を追加</button></div>}</section>}
   {revisions?.some(v=>v.status==='approved')&&<section className="history-section"><h3 className="serif"><History size={21}/> 改訂履歴</h3><p className="hint">作者が保存した旧版の本文を読めます。改訂審査中の原稿は一般公開されません。</p><div className="history-list">{revisions.filter(v=>v.status==='approved').sort((a,b)=>b.version_number-a.version_number).map(v=><div className="history-row" key={v.id}><span className="pill green">第{v.version_number}版</span><span>{dateFmt(v.reviewed_at||v.created_at)} · {v.change_note||'変更説明なし'}</span>{v.snapshot?.body_retained===false?<span className="hint">旧本文は保存されていません</span>:<button type="button" className="text-action" onClick={()=>setHistoryPreview(historyPreview?.id===v.id?null:v)}>本文を見る</button>}</div>)}</div>{historyPreview&&<div className="history-preview"><div className="history-preview-head"><strong>第{historyPreview.version_number}版 · {historyPreview.snapshot.title}</strong><button className="text-action" onClick={()=>setHistoryPreview(null)}>閉じる</button></div><p className="byline">{authorLabel(historyPreview.snapshot)}：{historyPreview.snapshot.pen_name}{historyPreview.snapshot.contributor_credit&&<> · 入力／構成：{historyPreview.snapshot.contributor_credit}</>}</p><p className="multiline">{historyPreview.snapshot.summary}</p><RichBody screenplay={isScreenplay(historyPreview.snapshot)} source={historyPreview.snapshot.body} fontSize={readerSize} className="history-rich"/>{(historyPreview.snapshot.question||historyPreview.snapshot.inheritance||historyPreview.snapshot.novelty)&&<div className="history-positioning"><h4>思想・技法・知識の位置づけ</h4>{historyPreview.snapshot.question&&<p><strong>この作品が問うこと：</strong>{historyPreview.snapshot.question}</p>}{historyPreview.snapshot.inheritance&&<p><strong>先行作品から継承するもの：</strong>{historyPreview.snapshot.inheritance}</p>}{historyPreview.snapshot.novelty&&<p><strong>新たに試みること：</strong>{historyPreview.snapshot.novelty}</p>}</div>}<h4>文献・関連作品</h4>{historyPreview.refs?.map((r,i)=><p key={i}>{r.title}{r.relation?' — '+r.relation:''}</p>)}</div>}</section>}
   <div className="annotations"><h3 className="serif">読者の注釈・異論</h3>

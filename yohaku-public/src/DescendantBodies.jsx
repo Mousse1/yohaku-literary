@@ -2,7 +2,7 @@ import WorkTitle from './WorkTitle.jsx'
 import ReviewMark from './ReviewMark.jsx'
 import {isScreenplay} from './screenplay'
 import React, { useEffect, useMemo, useState } from 'react'
-import { configured, publicReader, demoWorks, messageFor } from './client'
+import { configured, supabase, publicReader, demoWorks, messageFor } from './client'
 import RichBody from './RichBody'
 import CollapsibleBody from './CollapsibleBody'
 import { descendantsOf, hierarchyEntries, readingPageEntries } from './workHierarchy'
@@ -16,7 +16,7 @@ const MAX_LEVELS = 12
 const MAX_NODES = 1000
 const BATCH = 50
 
-async function loadPublicDescendants(rootId) {
+async function loadPublicDescendants(rootId,ownerId) {
   const found = new Map()
   let parents = [rootId]
   let truncated = false
@@ -27,12 +27,13 @@ async function loadPublicDescendants(rootId) {
       // Each parent can own many chapters. Supabase/PostgREST may impose a
       // row limit, so paginate instead of silently dropping later chapters.
       for (let offset = 0; ; offset += 500) {
-        const {data, error} = await publicReader.from('works')
+        let query = (ownerId?supabase:publicReader).from('works')
           .select('id,title,parent_work_id,order_index,node_kind,status,created_at')
           .in('parent_work_id', pageParents)
-          .in('status', PUBLIC_STATUSES)
           .order('id', {ascending:true})
           .range(offset, offset + 499)
+        query=ownerId?query.eq('author_id',ownerId):query.in('status',PUBLIC_STATUSES)
+        const {data,error}=await query
         if (error) throw error
         const rows = data || []
         for (const row of rows) {
@@ -51,7 +52,7 @@ async function loadPublicDescendants(rootId) {
   return {nodes:[...found.values()], truncated}
 }
 
-export default function DescendantBodies({ rootWorkId, treeNodes = [], fontSize = 16, enabled = true, compact = false, onAnnotationClick }) {
+export default function DescendantBodies({ rootWorkId, treeNodes = [], fontSize = 16, enabled = true, compact = false, ownerId=null, onOpen, onAnnotationClick }) {
   const [remote, setRemote] = useState(null)
   const [treeLoading, setTreeLoading] = useState(false)
   const [treeError, setTreeError] = useState('')
@@ -69,7 +70,7 @@ export default function DescendantBodies({ rootWorkId, treeNodes = [], fontSize 
     setTreeLoading(false)
     if (!enabled || !rootWorkId || !configured) return () => { active = false }
     setTreeLoading(true)
-    loadPublicDescendants(rootWorkId).then(data => {
+    loadPublicDescendants(rootWorkId,ownerId).then(data => {
       if (active) setRemote(data)
     }).catch(error => {
       if (active) setTreeError(messageFor(error))
@@ -77,20 +78,20 @@ export default function DescendantBodies({ rootWorkId, treeNodes = [], fontSize 
       if (active) setTreeLoading(false)
     })
     return () => { active = false }
-  }, [enabled, rootWorkId, retry])
+  }, [enabled, rootWorkId, retry,ownerId])
 
   const descendants = useMemo(() => {
     if (!enabled || !rootWorkId) return []
     // Use the homepage index while metadata is loading. Once the API returns,
     // prefer its complete, authoritative list of visible descendants.
     const source = !configured ? demoWorks : (remote?.nodes || treeNodes)
-    const publicItems = source.filter(w => w?.id && PUBLIC_STATUSES.includes(w.status))
+    const publicItems = source.filter(w => w?.id && (ownerId?(!remote?.nodes?w.author_id===ownerId:true):PUBLIC_STATUSES.includes(w.status)))
     const parent = treeNodes.find(w => w.id === rootWorkId)
       || demoWorks.find(w => w.id === rootWorkId)
       || {id:rootWorkId,title:'',node_kind:'collection',status:'published'}
     const withoutRoot = publicItems.filter(w => w.id !== rootWorkId)
     return descendantsOf(hierarchyEntries([parent, ...withoutRoot]), rootWorkId)
-  }, [rootWorkId, enabled, treeNodes, remote])
+  }, [rootWorkId, enabled, treeNodes, remote,ownerId])
   const visible = useMemo(() => readingPageEntries(descendants, limit), [descendants, limit])
   const ids = useMemo(() => visible.map(entry => entry.id), [visible])
   const idsKey = ids.join(',')
@@ -111,10 +112,12 @@ export default function DescendantBodies({ rootWorkId, treeNodes = [], fontSize 
       try {
         // A separate query avoids downloading 200k-char bodies for every
         // descendant when a large textbook is opened.
-        const {data,error} = await publicReader.from('works')
+        let query = (ownerId?supabase:publicReader).from('works')
           .select('id,body,status,section,genre')
           .in('id',ids)
-          .in('status',PUBLIC_STATUSES)
+          
+        query=ownerId?query.eq('author_id',ownerId):query.in('status',PUBLIC_STATUSES)
+        const {data,error}=await query
         if (error) throw error
         if (active) setLoaded(data || [])
       } catch(error) {
@@ -124,7 +127,7 @@ export default function DescendantBodies({ rootWorkId, treeNodes = [], fontSize 
       }
     })()
     return () => { active = false }
-  }, [enabled, idsKey, retry])
+  }, [enabled, idsKey, retry,ownerId])
 
   if (!enabled) return null
   if (!descendants.length && !treeLoading && !treeError) return null
@@ -133,7 +136,7 @@ export default function DescendantBodies({ rootWorkId, treeNodes = [], fontSize 
   return <section className={`descendant-reader ${compact ? 'descendant-reader-compact' : ''}`} aria-label="収録された章と節">
     {visible.map(entry => {
       const body = byId.get(entry.id)?.body
-      return <DescendantReadingItem key={entry.id} entry={{...entry,...byId.get(entry.id)}} body={body} fontSize={fontSize} onAnnotationClick={onAnnotationClick}/>
+      return <DescendantReadingItem key={entry.id} entry={{...entry,...byId.get(entry.id)}} body={body} fontSize={fontSize} onOpen={onOpen} onAnnotationClick={onAnnotationClick}/>
     })}
     {(treeLoading || bodyLoading) && <p className="muted" role="status">下位の章・節を読み込んでいます…</p>}
     {treeError && <p className="parallel-error" role="alert">階層目次を取得できませんでした：{treeError}</p>}
@@ -145,7 +148,7 @@ export default function DescendantBodies({ rootWorkId, treeNodes = [], fontSize 
   </section>
 }
 
-export function DescendantReadingItem({entry,body,fontSize=16,onAnnotationClick}) {
+export function DescendantReadingItem({entry,body,fontSize=16,onOpen,onAnnotationClick}) {
   const isGroup=entry.node_kind==='collection'
   const hasBody=typeof body==='string' && Boolean(body.trim())
   const title=entry.title||'本文'
@@ -153,11 +156,11 @@ export function DescendantReadingItem({entry,body,fontSize=16,onAnnotationClick}
   return <article className={`descendant-reader-item ${isGroup?'is-group':'is-body'}`}>
     {(isGroup||!hasBody)&&<div className="descendant-reader-title" style={{paddingLeft:Math.min(entry.depth,8)*9}}>
       <span aria-hidden="true">{isGroup?'▣':'§'}</span>
-      <a href={`/works/${encodeURIComponent(entry.id)}`} title={title}><WorkTitle>{title}</WorkTitle></a>
+      <a href={`/works/${encodeURIComponent(entry.id)}`} title={title} onClick={e=>{if(onOpen){e.preventDefault();onOpen(entry.id)}}}><WorkTitle>{title}</WorkTitle></a>
     </div>}
     {hasBody&&<div style={{paddingLeft:Math.min(entry.depth,8)*9}}><CollapsibleBody key={entry.id} label={isGroup?'本文':<><WorkTitle>{title}</WorkTitle><ReviewMark work={entry}/></>}>
       {richBody}
-      <a className="text-action" href={`/works/${encodeURIComponent(entry.id)}`}>この項目を単独で開く</a>
+      <a className="text-action" href={`/works/${encodeURIComponent(entry.id)}`} onClick={e=>{if(onOpen){e.preventDefault();onOpen(entry.id)}}}>この項目を単独で開く</a>
     </CollapsibleBody></div>}
   </article>
 }

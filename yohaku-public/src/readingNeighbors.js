@@ -2,9 +2,9 @@ import {orderWorks} from './workHierarchy.js'
 
 // Stay within one top-level work. At the end of a chapter, continue with the
 // next sibling of its parent; never jump into an unrelated top-level book.
-export function readingNeighbors(nodes=[],work) {
+export function readingNeighbors(nodes=[],work,ownerId=null) {
   const empty={previous:null,next:null}
-  const publicWork=w=>w&&['published','open'].includes(w.status)
+  const publicWork=w=>w&&(['published','open'].includes(w.status)||(ownerId&&w.author_id===ownerId))
   if(!publicWork(work)||!work.id)return empty
   const byId=new Map(nodes.filter(publicWork).map(w=>[w.id,w]))
   byId.set(work.id,work)

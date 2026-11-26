@@ -2,8 +2,8 @@ import WorkTitle from './WorkTitle.jsx'
 import React from 'react'
 import {readingNeighbors} from './readingNeighbors'
 
-export default function ReadingNavigation({work,nodes=[],onOpen}) {
-  const {previous,next}=readingNeighbors(nodes,work)
+export default function ReadingNavigation({work,nodes=[],onOpen,ownerId=null}) {
+  const {previous,next}=readingNeighbors(nodes,work,ownerId)
   if(!previous&&!next)return null
   const step=(item,label,direction)=>item?<a className={`reading-step ${direction}`} href={`/works/${encodeURIComponent(item.id)}`} rel={direction==='previous'?'prev':'next'} aria-label={`${label}：${item.title||'本文'}`} onClick={event=>{
     if(onOpen&&!event.defaultPrevented&&event.button===0&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey){event.preventDefault();onOpen(item.id)}

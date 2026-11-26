@@ -1,3 +1,4 @@
+import {descendantsOf,hierarchyEntries} from './workHierarchy'
 import {fileReferenceGroups} from './fileReferenceGroups.js'
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowUpRight, BookOpen } from 'lucide-react'
@@ -10,11 +11,11 @@ import { configured, publicReader, safeUrl, messageFor } from './client'
 const PAGE_SIZE = 400
 const isUuid = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '')
 
-export default function DescendantReferences({ workId, enabled = true, rootWork=null, ownReferences=[] }) {
+export default function DescendantReferences({ workId, enabled = true, rootWork=null, ownReferences=[], ownerWorks=null, onOpen }) {
   const [state, setState] = useState({ rows: [], communityRows: [], nodes:[], loading: false, error: '' })
   useEffect(() => {
     let active = true
-    if (!configured || !enabled || !isUuid(workId)) {
+    if (ownerWorks || !configured || !enabled || !isUuid(workId)) {
       setState({ rows: [], communityRows: [], nodes:[], loading: false, error: '' })
       return () => { active = false }
     }
@@ -58,9 +59,13 @@ export default function DescendantReferences({ workId, enabled = true, rootWork=
       if (active) setState({ rows: [], communityRows: [], nodes:[], loading: false, error: messageFor(error) })
     })
     return () => { active = false }
-  }, [workId, enabled])
+  }, [workId, enabled,Boolean(ownerWorks)])
 
   const groups = useMemo(() => {
+    if(ownerWorks){
+      const descendants=descendantsOf(hierarchyEntries(ownerWorks),workId);
+      return fileReferenceGroups([{work:rootWork||{id:workId},references:ownReferences},...descendants.map(w=>({work:w,references:w.work_references||[]}))]);
+    }
     const nodes=new Map((state.nodes||[]).map(w=>[w.id,w]));
     nodes.set(workId,{...(nodes.get(workId)||{}),...(rootWork||{id:workId,title:'参考文献'})});
     const records=[{work:nodes.get(workId),references:ownReferences}];const byId=new Map([[workId,records[0]]]);
@@ -71,7 +76,7 @@ export default function DescendantReferences({ workId, enabled = true, rootWork=
     }
     for(const node of nodes.values())if(!byId.has(node.id))records.push({work:node,references:[]});
     return fileReferenceGroups(records);
-  }, [state.rows,state.nodes,workId,rootWork,ownReferences])
+  }, [state.rows,state.nodes,workId,rootWork,ownReferences,ownerWorks])
 
   const communityGroups = useMemo(() => {
     const map = new Map()
@@ -82,7 +87,7 @@ export default function DescendantReferences({ workId, enabled = true, rootWork=
     return [...map.values()]
   }, [state.communityRows])
 
-  if ((!enabled || !configured)&&!ownReferences.length) return null
+  if (!ownerWorks&&(!enabled || !configured)&&!ownReferences.length) return null
   if (!state.loading && !state.error && !groups.length && !communityGroups.length) return null
 
   return <section className="inherited-references" aria-label="ファイルごとの参考文献">
@@ -91,7 +96,7 @@ export default function DescendantReferences({ workId, enabled = true, rootWork=
     {state.loading && <p className="muted" role="status">下位作品の文献を読み込んでいます…</p>}
     {state.error && <p className="reference-load-error" role="alert">下位作品の参考文献を表示できません。Supabaseのv6.4追加SQLを確認してください。詳細：{state.error}</p>}
     {groups.map(group => <div className="inherited-reference-group" key={group.id}>
-      <h4><a href={`/works/${encodeURIComponent(group.id)}`} title={group.path || group.title}>{group.path || group.title} <ArrowUpRight size={12} /></a></h4>
+      <h4><a href={`/works/${encodeURIComponent(group.id)}`} title={group.path || group.title} onClick={e=>{if(onOpen){e.preventDefault();onOpen(group.id)}}}>{group.path || group.title} <ArrowUpRight size={12} /></a></h4>
       {group.references.map((r,i) => <div className="reference" key={i}>
         <strong>{r.annotation_number?`*${r.annotation_number}　`:''}{r.title}</strong>
         {r.relation && <span>{r.relation}</span>}

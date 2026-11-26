@@ -1,3 +1,4 @@
+import {loadReadableWork,ownedWorks} from './readerAccess.js'
 import {inheritedNumberedReferences,loadReferenceAncestors} from './referenceAnnotations.js'
 import WorkTitle from './WorkTitle.jsx'
 import ReviewMark from './ReviewMark.jsx'
@@ -30,14 +31,14 @@ const validSize = () => {
   } catch { return 16 }
 }
 
-export default function ParallelReader({ initialPanes=[], publishedWorks=[], publishedIndex=[], user=null, onLogin, onExit, onOpenSingle }) {
+export default function ParallelReader({ initialPanes=[], publishedWorks=[], publishedIndex=[], ownerWorks=[], user=null, onLogin, onExit, onOpenSingle }) {
   const available = useMemo(() => {
     const found = new Map()
-    for(const w of [...publishedIndex, ...publishedWorks, ...demoWorks.filter(w=>!configured)]) {
-      if(w?.id && (!configured || ['published','open'].includes(w.status))) found.set(w.id,w)
+    for(const w of [...publishedIndex, ...publishedWorks, ...demoWorks.filter(w=>!configured),...ownedWorks(ownerWorks,user?.id)]) {
+      if(w?.id && (!configured || ['published','open'].includes(w.status)||(user?.id&&w.author_id===user.id))) found.set(w.id,w)
     }
     return hierarchyEntries([...found.values()])
-  },[publishedIndex,publishedWorks])
+  },[publishedIndex,publishedWorks,ownerWorks,user?.id])
   const nextId = useRef(1)
   const [panes,setPanes] = useState(() => initialPanes.map(p=>({key:nextId.current++,workId:p.workId,kind:p.kind||'body',referenceNumber:p.referenceNumber||null,focusAnchor:p.focusAnchor||'',focusLabel:p.focusLabel||''})).slice(0,MAX_PANES))
   const [fontSize,setFontSize] = useState(validSize)
@@ -95,12 +96,12 @@ export default function ParallelReader({ initialPanes=[], publishedWorks=[], pub
     {!available.length && !panes.length ? <div className="empty">公開作品の読み込みを待っています。作品がない場合は、公開後に利用できます。</div> :
       <div className="parallel-panels" role="group" aria-label="複数の読書パネル">
         {panes.map((pane,i)=><ReaderErrorBoundary key={pane.key} resetKey={`${pane.workId}:${pane.kind}`} work={available.find(w=>w.id===pane.workId)} onBack={onExit}><ParallelPane
-          pane={pane} index={i} available={available} otherSelections={otherPanelWorks(panes,available,pane.key)} fontSize={fontSize} user={user} onLogin={onLogin}
+          pane={pane} index={i} ownerWorks={ownedWorks(ownerWorks,user?.id)} available={available} otherSelections={otherPanelWorks(panes,available,pane.key)} fontSize={fontSize} user={user} onLogin={onLogin}
           onChange={patch=>update(pane.key,patch)} onRemove={()=>removePane(pane.key)}
           canRemove={panes.length>1} onOpenSingle={onOpenSingle} onAnnotationClick={openReferenceNextTo}
         /></ReaderErrorBoundary>)}
       </div>}
-    <p className="parallel-footnote">審査済み作品と自由公開作品を表示します。注釈・文献提案は承認済みのものだけ公開します。自分が提出した審査待ち投稿は本人にだけ表示します。最大4パネルまで利用できます。</p>
+    <p className="parallel-footnote">公開作品と、ログイン中の自分の作品を表示します。注釈・文献提案は承認済みのものだけ公開します。自分が提出した審査待ち投稿は本人にだけ表示します。最大4パネルまで利用できます。</p>
   </main>
 }
 
@@ -181,7 +182,7 @@ function ParallelWorkPicker({workId,available,otherSelections,missingName,onSele
   </div>
 }
 
-function ParallelPane({pane,index,available,otherSelections,fontSize,user,onLogin,onChange,onRemove,canRemove,onOpenSingle,onAnnotationClick}){
+function ParallelPane({pane,index,ownerWorks,available,otherSelections,fontSize,user,onLogin,onChange,onRemove,canRemove,onOpenSingle,onAnnotationClick}){
   const [wideReading,setWideReading]=useState(false)
   useEffect(()=>setWideReading(false),[pane.workId])
   const [work,setWork] = useState(null)
@@ -205,13 +206,11 @@ function ParallelPane({pane,index,available,otherSelections,fontSize,user,onLogi
       return ()=>{active=false}
     }
     ;(async()=>{
-      const {data,error:workError}=await publicReader.from('works')
-        .select('*,work_references(*)').eq('id',pane.workId).in('status',['published','open']).maybeSingle()
+      const data=await loadReadableWork(pane.workId,user?.id,supabase,publicReader);const workError=null
       if(!active)return
       if(workError||!data){setError(workError?messageFor(workError):'作品が見つからないか、非公開です。');setLoadState('notfound');return}
       const ancestors=pane.kind==='refs'?await loadReferenceAncestors(data,async id=>{
-        const {data:parent,error}=await publicReader.from('works').select('id,title,parent_work_id,work_references(*)').eq('id',id).in('status',['published','open']).maybeSingle();
-        if(error)throw error;return parent;
+        return loadReadableWork(id,user?.id,supabase,publicReader);
       }):[];
       if(!active)return;
       setWork({...data,work_references:inheritedNumberedReferences(data,ancestors)})
@@ -261,11 +260,11 @@ function ParallelPane({pane,index,available,otherSelections,fontSize,user,onLogi
             {pane.focusLabel&&<p className="note-link-focus">注釈リンク：{pane.focusLabel}</p>}
             <button type="button" className="text-action" aria-pressed={wideReading} onClick={()=>setWideReading(v=>!v)}>{wideReading?'本文の幅を戻す':'本文を横に広げる'}</button>
             {work.body?.trim() && <CollapsibleBody key={work.id} defaultOpen={work.node_kind!=='collection'}><RichBody screenplay={isScreenplay(work)} source={work.body} fontSize={fontSize} onAnnotationClick={number=>onAnnotationClick(pane.key,work.id,number)}/></CollapsibleBody>}
-            <DescendantBodies rootWorkId={work.id} treeNodes={available} fontSize={fontSize} compact enabled={pane.kind==='body'} onAnnotationClick={(id,number)=>onAnnotationClick(pane.key,id,number)}/>
+            <DescendantBodies rootWorkId={work.id} treeNodes={available} fontSize={fontSize} compact ownerId={(user?.id&&work.author_id===user.id)?user.id:null} onOpen={onOpenSingle} enabled={pane.kind==='body'} onAnnotationClick={(id,number)=>onAnnotationClick(pane.key,id,number)}/>
           </>}
-          {pane.kind==='body'&&<ReadingNavigation work={work} nodes={available} onOpen={workId=>onChange({workId,kind:'body',referenceNumber:null,focusAnchor:'',focusLabel:''})}/>}
+          {pane.kind==='body'&&<ReadingNavigation ownerId={user?.id&&work.author_id===user.id?user.id:null} work={work} nodes={available} onOpen={workId=>onChange({workId,kind:'body',referenceNumber:null,focusAnchor:'',focusLabel:''})}/>}
           {pane.kind==='notes' && <><CommunityNoteList notes={notes.filter(n=>n.status==='published'||(n.status==='pending'&&n.author_id===user?.id))} fontSize={fontSize} compact/><CommunityNoteForm workId={work.id} user={user} onLogin={onLogin} compact onSubmitted={()=>setRefresh(n=>n+1)}/></>}
-          {pane.kind==='refs' && <ParallelReferences key={`${work.id}:${pane.referenceNumber||''}`} work={work} referenceNumber={pane.referenceNumber} showSource={showSource} onToggleSource={()=>setShowSource(x=>!x)} user={user} onLogin={onLogin}/>}
+          {pane.kind==='refs' && <ParallelReferences onOpen={onOpenSingle} key={`${work.id}:${pane.referenceNumber||''}`} work={work} ownerWorks={(user?.id&&work.author_id===user.id)?ownerWorks:null} referenceNumber={pane.referenceNumber} showSource={showSource} onToggleSource={()=>setShowSource(x=>!x)} user={user} onLogin={onLogin}/>}
         </>}
     </div>
     <div className="parallel-pane-footer">
@@ -302,12 +301,12 @@ export function AnnotationReferenceFocus({references,referenceNumber,showSource,
 }
 
 // Keep optional community widgets from discarding the author's bibliography.
-export function ParallelReferences({work,referenceNumber,showSource,onToggleSource,user,onLogin}) {
+export function ParallelReferences({work,ownerWorks=null,onOpen,referenceNumber,showSource,onToggleSource,user,onLogin}) {
   const references=normalizeReferences(work.work_references)
   return <div className="parallel-references">
     {Boolean(referenceNumber) && <AnnotationReferenceFocus references={references} referenceNumber={referenceNumber} showSource={showSource} onToggleSource={onToggleSource}/>}
     {[['作品の問い',work.question],['継承するもの',work.inheritance],['新たに試みること',work.novelty]].map(([label,value])=><section key={label}><h3>{label}</h3><p className="multiline">{readableText(value)||'未記載'}</p></section>)}
-    <DescendantReferences workId={work.id} rootWork={work} ownReferences={references} enabled={['published','open'].includes(work.status)}/>
+    <DescendantReferences onOpen={onOpen} workId={work.id} rootWork={work} ownReferences={references} ownerWorks={ownerWorks} enabled={['published','open'].includes(work.status)}/>
     <ReaderPartBoundary resetKey={work.id} fallback={<p role="alert">読者による参考文献を表示できませんでした。</p>}><CommunityReferences workId={work.id} user={user} onLogin={onLogin} compact/></ReaderPartBoundary>
     
   </div>

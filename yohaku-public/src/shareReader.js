@@ -1,3 +1,4 @@
+import {installShareParallel} from './shareParallel.js'
 import {renderPrintMarkdown} from '../worker/printMarkdown.js'
 const reader=document.getElementById('share-reader');
 if(reader){
@@ -29,6 +30,7 @@ if(reader){
  reader.addEventListener('click',event=>{
   const link=event.target.closest('a[href^="#"]');if(link&&link.hash===location.hash)revealHash();
  });
+ installShareParallel(reader,render);
  const size=document.getElementById('reader-size');
  const applySize=()=>{reader.style.setProperty('--reader-size',size.value+'px');try{localStorage.setItem('yohaku:share-reader-size',size.value)}catch{}};
  try{const saved=localStorage.getItem('yohaku:share-reader-size');if(['14','16','18','20','24'].includes(saved))size.value=saved}catch{}
