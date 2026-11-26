@@ -447,3 +447,10 @@
 
 .work-attachments{border-top:1px solid #ccc;margin-top:24px;padding-top:12px}.work-attachment{margin:16px 0}.work-attachment h4{margin-bottom:8px}.work-attachment img{max-width:100%;height:auto}.work-attachment pre{white-space:pre-wrap;overflow-wrap:anywhere}.work-attachment p{white-space:pre-wrap}.work-attachment summary{cursor:pointer}.work-attachment .attachment-download{display:inline-block;margin-bottom:8px}@media print{.attachment-download{display:none}}
 .attachment-editor{border:1px solid var(--line);padding:16px;margin:18px 0}.attachment-editor label{display:block;margin:10px 0}
+
+/* Tagged equations share one horizontal scroll area. Reserve real space for
+   the tag instead of overlaying it at the viewport's right edge. */
+.rich-body .katex-display > .katex > .katex-html:has(> .tag){display:flex;align-items:baseline;justify-content:center;width:max-content;min-width:100%}
+.rich-body .katex-display > .katex > .katex-html:has(> .tag) > .base{flex:none}
+.rich-body .katex-display > .katex > .katex-html > .tag{position:static;flex:none;margin-left:1.25em;padding-right:.2em}
+.rich-body .katex-display.leqno > .katex > .katex-html > .tag{order:-1;margin-left:0;margin-right:1.25em;padding-left:.2em;padding-right:0}
